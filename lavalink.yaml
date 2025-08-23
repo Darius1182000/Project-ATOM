@@ -1,0 +1,68 @@
+server:
+  port: 2333
+  address: 0.0.0.0
+
+lavalink:
+  plugins:
+    - dependency: "dev.lavalink.youtube:youtube-plugin:1.13.5"
+      repository: "https://maven.lavalink.dev/releases"
+  server:
+    password: "youshallnotpass"
+    sources:
+      youtube: false  # Disable built-in YouTube source
+      bandcamp: true
+      soundcloud: true
+      twitch: true
+      vimeo: true
+      http: true
+      local: false
+    # Enhanced audio processing settings
+    bufferDurationMs: 400
+    frameBufferDurationMs: 5000
+    opusEncodingQuality: 10
+    resamplingQuality: LOW
+    trackStuckThresholdMs: 10000
+    useSeekGhosting: true
+    youtubePlaylistLoadLimit: 6
+    playerUpdateInterval: 5
+
+plugins:
+  youtube:
+    enabled: true
+    allowSearch: true
+    allowDirectVideoIds: true
+    allowDirectPlaylistIds: true
+    # Use multiple clients for better reliability and format diversity
+    clients:
+      - ANDROID_VR
+      - WEBEMBEDDED
+      - MUSIC
+      - WEB
+      - WEB
+      - ANDROID_MUSIC
+    # Prefer formats that are less likely to have AAC decoding issues
+    audioFormats: 
+      - "WEBM/OPUS"  # Prioritize OPUS over AAC
+      - "WEBM/VORBIS"
+      - "MP4/M4A"
+      - "MP4/AAC"     # AAC last as it causes decoding issues
+    playback:
+      nonSearchResults: true
+    # IPv6 rotation can help avoid rate limits
+    ipv6Block: ""
+    # OAuth configuration (optional but helps with rate limits)
+    oauth:
+      enabled: false
+      # If you want to enable OAuth, set to true and follow YouTube's device linking process
+      refreshToken: ""
+    # Additional settings to reduce AAC decoding issues
+    requestTimeout: 30000
+    retryLimit: 3
+    # Prefer lower quality streams that are more likely to work
+    audioQuality: MEDIUM
+
+logging:
+  level:
+    root: INFO
+    lavalink: INFO
+    dev.lavalink.youtube: DEBUG
