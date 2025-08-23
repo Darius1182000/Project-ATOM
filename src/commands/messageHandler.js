@@ -1,4 +1,3 @@
-const { LoopMode } = require("lavalink-client");
 const { sendMessage, formatDuration } = require("../utils/helpers");
 const { trackRetryMap, getTrackKey, clearRetryMap } = require("../utils/trackUtils");
 const { playMusic } = require("./musicCommands");
@@ -128,17 +127,17 @@ async function handleMessage(message) {
     const player = manager.players.get(message.guild.id);
     if (!player) return sendMessage(message.channel, "Nothing is playing right now.");
     let newLoopMode;
-    if (player.loop === LoopMode.NONE) {
-      newLoopMode = LoopMode.TRACK;
+    if (player.repeatMode === "off" || !player.repeatMode) {
+      newLoopMode = "track";
       sendMessage(message.channel, "🔁 Loop enabled: The current song will repeat.");
-    } else if (player.loop === LoopMode.TRACK) {
-      newLoopMode = LoopMode.QUEUE;
+    } else if (player.loop === "track") {
+      newLoopMode = "queue";
       sendMessage(message.channel, "🔄 Queue loop enabled: The entire queue will repeat.");
     } else {
-      newLoopMode = LoopMode.NONE;
+      newLoopMode = "off";
       sendMessage(message.channel, "⏹️ Loop disabled.");
     }
-    player.setLoop(newLoopMode);
+    await player.setRepeatMode(newLoopMode);
   }
   
   if (command === "shuffle") {
@@ -165,7 +164,7 @@ async function handleMessage(message) {
     const author = current.info?.author || 'Unknown Artist';
     const duration = current.info?.duration || current.duration || 0;
     const requester = current.requester?.tag || current.requester?.username || 'Unknown User';
-    const loopStatus = player.loop === LoopMode.TRACK ? 'Track' : player.loop === LoopMode.QUEUE ? 'Queue' : 'Off';
+    const loopStatus = player.repeatMode === "track" ? 'Track' : player.repeatMode === "queue" ? 'Queue' : 'Off';
     sendMessage(message.channel, `🎵 **Now Playing:**\n**${title}** by ${author}\n👤 Requested by: ${requester}\n⏱️ ${formatDuration(player.position)} / ${formatDuration(duration)}\n🔊 Volume: ${player.volume}%\n🔁 Loop: ${loopStatus}`);
   }
   
