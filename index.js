@@ -1,4 +1,3 @@
-// --- MAIN BOT FILE - index.js ---
 require("dotenv").config();
 const { Client, GatewayIntentBits } = require("discord.js");
 const { initializeLavalink } = require("./src/lavalink/lavalinkManager.js");
