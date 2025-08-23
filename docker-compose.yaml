@@ -1,0 +1,36 @@
+services:
+  lavalink:
+    image: ghcr.io/lavalink-devs/lavalink:4
+    container_name: lavalink
+    restart: unless-stopped
+    volumes:
+      - ./lavalink.yaml:/opt/Lavalink/application.yml
+      - ./plugins:/opt/Lavalink/plugins
+      - ./logs:/opt/Lavalink/logs
+    ports:
+      - "2333:2333"
+    networks:
+      - lavalink
+
+  discord-bot:
+    build: .
+    container_name: discord-bot
+    restart: unless-stopped
+    depends_on:
+      - lavalink
+    environment:
+      - DISCORD_TOKEN=${DISCORD_TOKEN}
+      - SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}
+      - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET}
+      - LAVALINK_HOST=lavalink
+      - LAVALINK_PORT=2333
+      - LAVALINK_PASSWORD=youshallnotpass
+    networks:
+      - lavalink
+    volumes:
+      - .:/app
+      - /app/node_modules
+
+networks:
+  lavalink:
+    driver: bridge
