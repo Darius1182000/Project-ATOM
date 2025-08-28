@@ -23,3 +23,7 @@ Not installed in the current project:
 
 - `CTRL + SHIFT + P` and search "Format Document"
 - `SHIFT + ALT + F` to format the document you are in
+
+# Docs:
+
+- https://tomato6966.github.io/lavalink-client/home/installation
