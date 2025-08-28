@@ -11,6 +11,8 @@ services:
       - "2333:2333"
     networks:
       - lavalink
+    env_file:
+      - .env
 
   discord-bot:
     build: .

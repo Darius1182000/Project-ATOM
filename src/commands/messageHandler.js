@@ -1,6 +1,6 @@
 const { sendMessage, formatDuration } = require("../utils/helpers");
-const { trackRetryMap, getTrackKey, clearRetryMap } = require("../utils/trackUtils");
-const { playMusic } = require("./musicCommands");
+const { trackRetryMap, getTrackKey, clearRetryMap, isSpotifyUrl } = require("../utils/trackUtils");
+const { playMusic, playSpotify, playYouTube } = require("./musicCommands");
 
 async function handleMessage(message) {
   if (message.author.bot || !message.guild) return;
@@ -10,15 +10,25 @@ async function handleMessage(message) {
 
   const manager = message.client.manager;
   if (!manager || !manager.useable) {
-    return sendMessage(message.channel, "❌ Lavalink is not ready yet, please wait a moment.");
+    return sendMessage(message.channel, "Lavalink is not ready yet, please wait a moment.");
   }
 
   const args = message.content.slice(prefix.length).trim().split(" ");
   const command = args.shift().toLowerCase();
 
-  // Music commands
-  if (command === "play") {
+  // Enhanced music commands with Spotify support
+  if (command === "play" || command === "p") {
     await playMusic(message, args.join(" "));
+  }
+  
+  // Spotify-specific commands
+  if (command === "spotify" || command === "sp") {
+    await playSpotify(message, args.join(" "));
+  }
+  
+  // YouTube-specific commands  
+  if (command === "youtube" || command === "yt") {
+    await playYouTube(message, args.join(" "));
   }
   
   // Debug and utility commands
@@ -33,16 +43,36 @@ async function handleMessage(message) {
   }
   
   if (command === "test") {
-    // Test with a known working video
+    // Enhanced test with Spotify support
     const testUrls = [
       "https://www.youtube.com/watch?v=dQw4w9WgXcQ", // Rick Roll - usually works
       "ytsearch:Never gonna give you up rick astley",
-      "ytsearch:Despacito Luis Fonsi"
+      "ytsearch:Despacito Luis Fonsi",
+      "https://open.spotify.com/track/4iV5W9uYEdYUVa79Axb7Rh" // Never Gonna Give You Up on Spotify
     ];
     
     const testUrl = args[0] ? args.join(" ") : testUrls[Math.floor(Math.random() * testUrls.length)];
-    sendMessage(message.channel, `🧪 **Testing with:** ${testUrl}`);
+    
+    if (isSpotifyUrl(testUrl)) {
+      sendMessage(message.channel, `Testing Spotify integration with: ${testUrl}`);
+    } else {
+      sendMessage(message.channel, `Testing with: ${testUrl}`);
+    }
+    
     await playMusic(message, testUrl);
+  }
+  
+  if (command === "testspotify") {
+    // Test specifically Spotify functionality
+    const spotifyTestUrls = [
+      "https://open.spotify.com/track/4iV5W9uYEdYUVa79Axb7Rh", // Never Gonna Give You Up
+      "https://open.spotify.com/track/7qiZfU4dY1lWllzX7mPBI3", // Shape of You
+      "spsearch:Bohemian Rhapsody Queen"
+    ];
+    
+    const testUrl = args[0] ? args.join(" ") : spotifyTestUrls[Math.floor(Math.random() * spotifyTestUrls.length)];
+    sendMessage(message.channel, `Testing Spotify integration with: ${testUrl}`);
+    await playSpotify(message, testUrl);
   }
   
   if (command === "status") {
@@ -51,6 +81,7 @@ async function handleMessage(message) {
       return sendMessage(message.channel, "No player found for this guild.");
     }
     
+    const currentTrack = player.queue.current;
     const status = {
       connected: player.connected,
       playing: player.playing,
@@ -58,10 +89,20 @@ async function handleMessage(message) {
       position: formatDuration(player.position),
       volume: player.volume,
       queueSize: player.queue.tracks.length,
-      currentTrack: player.queue.current?.info?.title || "None",
+      currentTrack: currentTrack?.info?.title || "None",
       voiceChannel: player.voiceChannelId,
       textChannel: player.textChannelId
     };
+    
+    // Add Spotify info if available
+    if (currentTrack?.userData?.originalSpotify) {
+      status.spotifyInfo = {
+        originalTitle: currentTrack.userData.originalSpotify.title,
+        originalArtist: currentTrack.userData.originalSpotify.artist,
+        spotifyId: currentTrack.userData.originalSpotify.spotifyId,
+        isrc: currentTrack.userData.originalSpotify.isrc
+      };
+    }
     
     sendMessage(message.channel, `**Player Status:**\n\`\`\`json\n${JSON.stringify(status, null, 2)}\n\`\`\``);
   }
@@ -75,7 +116,7 @@ async function handleMessage(message) {
     const player = manager.players.get(message.guild.id);
     if (player) {
       player.destroy();
-      sendMessage(message.channel, "⏹️ Stopped the music and left the channel.");
+      sendMessage(message.channel, "Stopped the music and left the channel.");
     } else {
       sendMessage(message.channel, "Nothing is playing right now.");
     }
@@ -87,7 +128,7 @@ async function handleMessage(message) {
       const currentTrack = player.queue.current;
       const title = currentTrack.info?.title || currentTrack.title || 'Unknown Title';
       player.skip();
-      sendMessage(message.channel, `⏭️ Skipped: **${title}**`);
+      sendMessage(message.channel, `Skipped: **${title}**`);
     } else {
       sendMessage(message.channel, "Nothing is playing right now.");
     }
@@ -97,7 +138,7 @@ async function handleMessage(message) {
     const player = manager.players.get(message.guild.id);
     if (player && player.queue.current) {
       player.pause(!player.paused);
-      sendMessage(message.channel, player.paused ? "⏸️ Paused the music!" : "▶️ Resumed the music!");
+      sendMessage(message.channel, player.paused ? "Paused the music!" : "Resumed the music!");
     } else {
       sendMessage(message.channel, "Nothing is playing right now.");
     }
@@ -112,12 +153,28 @@ async function handleMessage(message) {
     const upcoming = player.queue.tracks.slice(0, 10);
     const currentTitle = current.info?.title || current.title || 'Unknown Title';
     const currentDuration = current.info?.duration || current.duration || 0;
-    let queueList = `**Now Playing:** ${currentTitle} - \`${formatDuration(currentDuration)}\`\n\n`;
+    
+    let queueList = `**Now Playing:** ${currentTitle} - \`${formatDuration(currentDuration)}\``;
+    
+    // Add Spotify info if available
+    if (current.userData?.originalSpotify) {
+      queueList += `\n*Originally from Spotify: ${current.userData.originalSpotify.title} by ${current.userData.originalSpotify.artist}*`;
+    }
+    
+    queueList += "\n\n";
+    
     if (upcoming.length > 0) {
       queueList += "**Up Next:**\n" + upcoming.map((song, i) => {
         const title = song.info?.title || song.title || 'Unknown Title';
         const duration = song.info?.duration || song.duration || 0;
-        return `${i + 1}. ${title} - \`${formatDuration(duration)}\``;
+        let trackInfo = `${i + 1}. ${title} - \`${formatDuration(duration)}\``;
+        
+        // Add Spotify indicator if it's a converted track
+        if (song.userData?.originalSpotify) {
+          trackInfo += " (Spotify)";
+        }
+        
+        return trackInfo;
       }).join("\n");
     }
     sendMessage(message.channel, `**Queue:**\n${queueList}`);
@@ -129,13 +186,13 @@ async function handleMessage(message) {
     let newLoopMode;
     if (player.repeatMode === "off" || !player.repeatMode) {
       newLoopMode = "track";
-      sendMessage(message.channel, "🔁 Loop enabled: The current song will repeat.");
+      sendMessage(message.channel, "Loop enabled: The current song will repeat.");
     } else if (player.loop === "track") {
       newLoopMode = "queue";
-      sendMessage(message.channel, "🔄 Queue loop enabled: The entire queue will repeat.");
+      sendMessage(message.channel, "Queue loop enabled: The entire queue will repeat.");
     } else {
       newLoopMode = "off";
-      sendMessage(message.channel, "⏹️ Loop disabled.");
+      sendMessage(message.channel, "Loop disabled.");
     }
     await player.setRepeatMode(newLoopMode);
   }
@@ -144,7 +201,7 @@ async function handleMessage(message) {
     const player = manager.players.get(message.guild.id);
     if (!player || player.queue.tracks.length < 2) return sendMessage(message.channel, "Not enough songs in queue to shuffle.");
     player.queue.shuffle();
-    sendMessage(message.channel, "🔀 Queue shuffled!");
+    sendMessage(message.channel, "Queue shuffled!");
   }
   
   if (command === "volume") {
@@ -153,7 +210,7 @@ async function handleMessage(message) {
     const volume = parseInt(args[0]);
     if (isNaN(volume) || volume < 0 || volume > 150) return sendMessage(message.channel, `Current volume: **${player.volume}%**\nUsage: \`.volume <0-150>\``);
     player.setVolume(volume);
-    sendMessage(message.channel, `🔊 Volume set to **${volume}%**`);
+    sendMessage(message.channel, `Volume set to **${volume}%**`);
   }
   
   if (command === "nowplaying" || command === "np") {
@@ -165,7 +222,18 @@ async function handleMessage(message) {
     const duration = current.info?.duration || current.duration || 0;
     const requester = current.requester?.tag || current.requester?.username || 'Unknown User';
     const loopStatus = player.repeatMode === "track" ? 'Track' : player.repeatMode === "queue" ? 'Queue' : 'Off';
-    sendMessage(message.channel, `🎵 **Now Playing:**\n**${title}** by ${author}\n👤 Requested by: ${requester}\n⏱️ ${formatDuration(player.position)} / ${formatDuration(duration)}\n🔊 Volume: ${player.volume}%\n🔁 Loop: ${loopStatus}`);
+    
+    let nowPlayingMessage = `🎵 **Now Playing:**\n**${title}** by ${author}\n👤 Requested by: ${requester}\n⏱️ ${formatDuration(player.position)} / ${formatDuration(duration)}\n🔊 Volume: ${player.volume}%\n🔁 Loop: ${loopStatus}`;
+    
+    // Add Spotify info if this is a converted track
+    if (current.userData?.originalSpotify) {
+      const spotify = current.userData.originalSpotify;
+      nowPlayingMessage += `\n\n🎵 **Spotify Info:**\nOriginal: **${spotify.title}** by ${spotify.artist}`;
+      if (spotify.album) nowPlayingMessage += `\nAlbum: ${spotify.album}`;
+      if (spotify.isrc) nowPlayingMessage += `\nISRC: ${spotify.isrc}`;
+    }
+    
+    sendMessage(message.channel, nowPlayingMessage);
   }
   
   // Retry and alternative search commands
@@ -229,6 +297,45 @@ async function handleMessage(message) {
     }
   }
   
+  if (command === "checkspotify") {
+    const manager = message.client.manager;
+    const testSpotifyQueries = [
+      "spsearch:Never Gonna Give You Up",
+      "https://open.spotify.com/track/4iV5W9uYEdYUVa79Axb7Rh"
+    ];
+    
+    sendMessage(message.channel, "🩺 **Checking Spotify connectivity...**");
+    
+    let workingCount = 0;
+    for (const testQuery of testSpotifyQueries) {
+      try {
+        const player = manager.players.get(message.guild.id);
+        if (!player) {
+          sendMessage(message.channel, "⚠️ No active player found. Join a voice channel first.");
+          return;
+        }
+        
+        const result = await player.search(testQuery, message.author);
+        if (result && result.tracks && result.tracks.length > 0) {
+          workingCount++;
+          console.log(`✅ Spotify test "${testQuery}" successful`);
+        } else {
+          console.log(`❌ Spotify test "${testQuery}" returned no results`);
+        }
+      } catch (error) {
+        console.log(`❌ Spotify test "${testQuery}" failed:`, error.message);
+      }
+    }
+    
+    if (workingCount === testSpotifyQueries.length) {
+      sendMessage(message.channel, "✅ **Spotify connectivity: GOOD** - All test searches successful");
+    } else if (workingCount > 0) {
+      sendMessage(message.channel, `⚠️ **Spotify connectivity: PARTIAL** - ${workingCount}/${testSpotifyQueries.length} test searches successful`);
+    } else {
+      sendMessage(message.channel, "❌ **Spotify connectivity: POOR** - All test searches failed\n💡 Check your Spotify credentials in Lavalink configuration");
+    }
+  }
+  
   // Alternative search commands  
   if (command === "alt" || command === "alternative") {
     const { handleAlternativeSearch } = require("./alternativeSearch");
@@ -238,6 +345,43 @@ async function handleMessage(message) {
   if (command === "playalt") {
     const { handlePlayAlternative } = require("./alternativeSearch");
     await handlePlayAlternative(message, args);
+  }
+  
+  // Help command with Spotify support
+  if (command === "help") {
+    const helpMessage = `**🎵 Music Bot Commands:**
+    
+**Basic Commands:**
+\`.play <query/url>\` - Play from YouTube or Spotify
+\`.spotify <query/url>\` - Search/play from Spotify
+\`.youtube <query/url>\` - Search/play from YouTube only
+\`.pause\` - Pause/resume playback
+\`.skip\` - Skip current track
+\`.stop\` - Stop and disconnect
+\`.queue\` - Show current queue
+\`.nowplaying\` / \`.np\` - Show current track info
+
+**Queue Management:**
+\`.shuffle\` - Shuffle the queue
+\`.loop\` - Toggle loop (off → track → queue → off)
+\`.volume <0-150>\` - Set playback volume
+
+**Alternative Search:**
+\`.alt <song>\` - Find alternative versions
+\`.playalt <number>\` - Play alternative from list
+
+**Utility:**
+\`.retry\` - Force retry current track
+\`.health\` - Check YouTube connectivity
+\`.checkspotify\` - Check Spotify connectivity
+\`.status\` - Show detailed player status
+
+**Supported Sources:**
+• YouTube (direct links, searches)
+• Spotify (tracks, playlists, albums)
+• Auto-conversion: Spotify metadata → YouTube playback`;
+
+    sendMessage(message.channel, helpMessage);
   }
 }
 
