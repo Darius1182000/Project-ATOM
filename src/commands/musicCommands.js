@@ -1,10 +1,10 @@
 const { sendMessage } = require("../utils/helpers");
-const { searchWithFallbacks } = require("../utils/trackUtils");
+const { searchWithFallbacks, isSpotifyUrl } = require("../utils/trackUtils");
 
-// --- Enhanced Play Music Function ---
+// --- Enhanced Play Music Function with Spotify Support ---
 async function playMusic(message, query) {
   const manager = message.client.manager;
-  if (!query) return sendMessage(message.channel, "Please provide a YouTube link or search term.");
+  if (!query) return sendMessage(message.channel, "Please provide a YouTube link, Spotify link, or search term.");
   
   const voiceChannel = message.member.voice.channel;
   if (!voiceChannel) return sendMessage(message.channel, "Join a voice channel first!");
@@ -41,7 +41,14 @@ async function playMusic(message, query) {
   try {
     console.log("Searching for:", query);
     
-    // Use enhanced search with fallbacks
+    // Show different loading message based on source
+    if (isSpotifyUrl(query)) {
+      sendMessage(message.channel, `🎵 **Searching Spotify and finding YouTube version for:** ${query}`);
+    } else {
+      sendMessage(message.channel, `🔍 **Searching for:** ${query}`);
+    }
+    
+    // Use enhanced search with Spotify support and fallbacks
     const searchResult = await searchWithFallbacks(player, query, message.author);
     
     if (!searchResult || !searchResult.tracks || searchResult.tracks.length === 0) {
@@ -68,12 +75,31 @@ async function playMusic(message, query) {
     
     if (searchResult.loadType === "playlist") {
       const playlistName = searchResult.pluginInfo?.name || 'Unknown Playlist';
-      sendMessage(message.channel, `✅ Playlist **${playlistName}** with ${tracks.length} songs added to the queue!`);
+      let responseMessage = `✅ Playlist **${playlistName}** with ${tracks.length} songs added to the queue!`;
+      
+      // If it's a Spotify playlist, mention the conversion
+      if (isSpotifyUrl(query)) {
+        responseMessage += "\n🎵 Tracks will be played from YouTube with original Spotify metadata preserved.";
+      }
+      
+      sendMessage(message.channel, responseMessage);
     } else {
       const track = tracks[0];
       const title = track.info?.title || track.title || 'Unknown Title';
       const author = track.info?.author || 'Unknown Artist';
-      sendMessage(message.channel, `✅ Added to queue: **${title}** by ${author}`);
+      
+      let responseMessage = `✅ Added to queue: **${title}** by ${author}`;
+      
+      // If this was a Spotify track converted to YouTube, mention it
+      if (track.userData?.originalSpotify) {
+        const originalTitle = track.userData.originalSpotify.title;
+        const originalArtist = track.userData.originalSpotify.artist;
+        responseMessage += `\n🎵 Found YouTube version of Spotify track: **${originalTitle}** by ${originalArtist}`;
+      } else if (isSpotifyUrl(query)) {
+        responseMessage += "\n🎵 Playing via YouTube with Spotify metadata";
+      }
+      
+      sendMessage(message.channel, responseMessage);
     }
     
     if (!player.playing && !player.paused && player.queue.tracks.length > 0) {
@@ -82,8 +108,46 @@ async function playMusic(message, query) {
     }
   } catch (err) {
     console.error("Error in playMusic:", err);
-    sendMessage(message.channel, "❌ An error occurred while loading the track. Please try again or use a different search term.");
+    
+    // Provide more specific error messages
+    let errorMessage = "❌ An error occurred while loading the track.";
+    
+    if (isSpotifyUrl(query)) {
+      errorMessage = "❌ Error loading Spotify track. Please check if the link is valid and try again.";
+    } else {
+      errorMessage = "❌ Error loading track. Please try again or use a different search term.";
+    }
+    
+    sendMessage(message.channel, errorMessage);
   }
 }
 
-module.exports = { playMusic };
+// --- Spotify-specific play command ---
+async function playSpotify(message, query) {
+  if (!query) return sendMessage(message.channel, "Please provide a Spotify link or search term.");
+  
+  // If it's not a Spotify URL, convert it to a Spotify search
+  if (!isSpotifyUrl(query)) {
+    query = `spsearch:${query}`;
+  }
+  
+  await playMusic(message, query);
+}
+
+// --- YouTube-specific play command ---
+async function playYouTube(message, query) {
+  if (!query) return sendMessage(message.channel, "Please provide a YouTube link or search term.");
+  
+  // If it's not already a search query, make it a YouTube search
+  if (!query.startsWith('ytsearch:') && !query.includes('youtube.com') && !query.includes('youtu.be')) {
+    query = `ytsearch:${query}`;
+  }
+  
+  await playMusic(message, query);
+}
+
+module.exports = { 
+  playMusic,
+  playSpotify,
+  playYouTube
+};
