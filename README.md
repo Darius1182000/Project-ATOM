@@ -9,12 +9,14 @@ Not installed in the current project:
 
 # Run the project:
 
--  `node index.js` to run the web client
+- Download Docker Desktop
+- In your IDE run `docker-compose up -d --build` in terminal
 
 # Commands:
 
 - Start docker containers: `docker-compose up -d`
 - Stop docker containers: `docker compose down`
+- Stop docker containers and clear data: `docker compose down --volumes`
 - Rebuild docker containers: `docker-compose up -d --build`
 - Rebuild projectatom-discord-bot docker image: `docker build -t projectatom-discord-bot .` 
 - Rebuild lavalink docker image: `docker build -t ghcr.io/lavalink-devs/lavalink .`
