@@ -108,7 +108,7 @@ async function handleMessage(message) {
   }
   
   if (command === "gabriel") {
-    sendMessage(message.channel, "Gabriel del Mundo do Santos Alveira Pedro Sales Hectorus Las Vegas Official");
+    sendMessage(message.channel, "Gabriel del Mundo dos Santos Alveira Pedro Sales Hectorus Las Vegas Official");
   }
   
   // Player control commands
@@ -122,17 +122,23 @@ async function handleMessage(message) {
     }
   }
   
-  if (command === "skip") {
-    const player = manager.players.get(message.guild.id);
-    if (player && player.queue.current) {
-      const currentTrack = player.queue.current;
-      const title = currentTrack.info?.title || currentTrack.title || 'Unknown Title';
-      player.skip();
-      sendMessage(message.channel, `Skipped: **${title}**`);
-    } else {
-      sendMessage(message.channel, "Nothing is playing right now.");
+if (command === "skip") {
+  const player = manager.players.get(message.guild.id);
+  if (player && player.queue.current) {
+    // Check if there are more songs in the queue to skip to
+    if (player.queue.tracks.length === 0) {
+      sendMessage(message.channel, "Can't skip - this is the only song in the queue! Use `.stop` to stop playback.");
+      return;
     }
+    
+    const currentTrack = player.queue.current;
+    const title = currentTrack.info?.title || currentTrack.title || 'Unknown Title';
+    player.skip();
+    sendMessage(message.channel, `Skipped: **${title}**`);
+  } else {
+    sendMessage(message.channel, "Nothing is playing right now.");
   }
+}
   
   if (command === "pause") {
     const player = manager.players.get(message.guild.id);
