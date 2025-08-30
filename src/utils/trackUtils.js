@@ -152,128 +152,39 @@ async function searchSpotifyTrack(player, spotifyQuery, requester) {
   }
 }
 
-// --- Search for Spotify track on YouTube using various methods ---
+// --- Search for Spotify track on YouTube ---
 async function searchSpotifyOnYouTube(player, spotifyTrack, requester) {
   const title = spotifyTrack.info?.title || '';
   const artist = spotifyTrack.info?.author || '';
-  const album = spotifyTrack.info?.albumName || '';
-  const isrc = spotifyTrack.info?.isrc || '';
+  const spotifyUri = spotifyTrack.info?.uri || spotifyTrack.uri;
   
-  // Priority 1: Search by ISRC if available (most accurate)
-  if (isrc) {
-    try {
-      console.log(`🔍 Searching YouTube by ISRC: ${isrc}`);
-      const isrcResult = await player.search(`ytsearch:${isrc}`, requester);
+  try {
+    // Just use the Spotify URI - LavaSrc handles everything based on YAML config
+    const result = await player.search(spotifyUri || `spsearch:${title} ${artist}`, requester);
+    
+    if (result && result.tracks && result.tracks.length > 0) {
+      const track = result.tracks[0];
       
-      if (isrcResult && isrcResult.tracks && isrcResult.tracks.length > 0) {
-        console.log(`✅ Found track using ISRC: ${isrcResult.tracks[0].info?.title}`);
-        return isrcResult;
-      }
-    } catch (error) {
-      console.log(`❌ ISRC search failed: ${error.message}`);
-    }
-  }
-  
-  // Priority 2: Search by title + artist (most common)
-  const searchQueries = [
-    `${title} ${artist}`,
-    `${title} ${artist} official`,
-    `${title} ${artist} audio`,
-    `${title} ${artist} music`,
-    `${title} ${artist} ${album}`,
-    `${title} ${artist} topic`,
-    `${artist} ${title}`, // Sometimes artist first works better
-    `${title}` // Title only as last resort
-  ].filter(query => query.trim().length > 0);
-  
-  for (const query of searchQueries) {
-    try {
-      console.log(`🔍 YouTube search: "${query}"`);
-      const result = await player.search(`ytsearch:${query}`, requester);
+      // Preserve original Spotify metadata
+      track.userData = track.userData || {};
+      track.userData.originalSpotify = {
+        title: spotifyTrack.info?.title,
+        artist: spotifyTrack.info?.author,
+        album: spotifyTrack.info?.albumName,
+        isrc: spotifyTrack.info?.isrc,
+        spotifyId: spotifyTrack.info?.identifier,
+        uri: spotifyUri
+      };
       
-      if (result && result.tracks && result.tracks.length > 0) {
-        // Try to find the best match based on similarity
-        const bestMatch = findBestMatch(result.tracks, title, artist, spotifyTrack.info?.duration);
-        
-        if (bestMatch) {
-          console.log(`✅ Found YouTube match: "${bestMatch.info?.title}" by "${bestMatch.info?.author}"`);
-          
-          // Preserve original Spotify metadata in userData
-          bestMatch.userData = bestMatch.userData || {};
-          bestMatch.userData.originalSpotify = {
-            title: spotifyTrack.info?.title,
-            artist: spotifyTrack.info?.author,
-            album: spotifyTrack.info?.albumName,
-            isrc: spotifyTrack.info?.isrc,
-            spotifyId: spotifyTrack.info?.identifier
-          };
-          
-          return { ...result, tracks: [bestMatch] };
-        }
-      }
-    } catch (error) {
-      console.log(`❌ YouTube search "${query}" failed: ${error.message}`);
-      continue;
+      console.log(`✅ Found: "${track.info?.title}" by "${track.info?.author}"`);
+      return result;
     }
+    
+  } catch (error) {
+    console.log(`❌ Search failed: ${error.message}`);
   }
   
   return null;
-}
-
-// --- Find best matching track from YouTube results ---
-function findBestMatch(tracks, targetTitle, targetArtist, targetDuration) {
-  if (!tracks || tracks.length === 0) return null;
-  
-  const normalizeString = (str) => str.toLowerCase().replace(/[^\w\s]/g, '').trim();
-  const normalizedTitle = normalizeString(targetTitle || '');
-  const normalizedArtist = normalizeString(targetArtist || '');
-  
-  let bestTrack = null;
-  let bestScore = -1;
-  
-  for (const track of tracks) {
-    const trackTitle = normalizeString(track.info?.title || '');
-    const trackAuthor = normalizeString(track.info?.author || '');
-    
-    let score = 0;
-    
-    // Title similarity (most important)
-    if (trackTitle.includes(normalizedTitle) || normalizedTitle.includes(trackTitle)) {
-      score += 50;
-    }
-    
-    // Artist similarity
-    if (trackAuthor.includes(normalizedArtist) || normalizedArtist.includes(trackAuthor)) {
-      score += 30;
-    }
-    
-    // Duration similarity (if available)
-    if (targetDuration && track.info?.duration) {
-      const durationDiff = Math.abs(targetDuration - track.info.duration);
-      if (durationDiff < 10000) score += 20; // Within 10 seconds
-      else if (durationDiff < 30000) score += 10; // Within 30 seconds
-      else if (durationDiff > 120000) score -= 20; // More than 2 minutes off
-    }
-    
-    // Prefer official/audio versions
-    if (trackTitle.includes('official')) score += 10;
-    if (trackTitle.includes('audio')) score += 8;
-    if (trackAuthor.includes('topic')) score += 5;
-    
-    // Penalize live versions, covers, remixes
-    if (trackTitle.includes('live')) score -= 15;
-    if (trackTitle.includes('cover')) score -= 15;
-    if (trackTitle.includes('remix') && !trackTitle.includes('official')) score -= 10;
-    if (trackTitle.includes('karaoke')) score -= 20;
-    
-    if (score > bestScore) {
-      bestScore = score;
-      bestTrack = track;
-    }
-  }
-  
-  // Only return a match if the score is reasonable
-  return bestScore > 20 ? bestTrack : tracks[0]; // Fallback to first track if no good match
 }
 
 function extractVideoTitle(url) {
@@ -287,7 +198,6 @@ function clearRetryMap() {
 }
 
 module.exports = {
-  trackRetryMap,
   getTrackKey,
   hasRecentlyRetried,
   markRetryAttempt,
