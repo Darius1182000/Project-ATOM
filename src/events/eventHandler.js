@@ -1,5 +1,4 @@
-const { LoopMode } = require("lavalink-client");
-const { trackRetryMap, getTrackKey, hasRecentlyRetried, markRetryAttempt, searchWithFallbacks } = require("../utils/trackUtils");
+const { getTrackKey, hasRecentlyRetried, markRetryAttempt, searchWithFallbacks } = require("../utils/trackUtils");
 const { sendMessage } = require("../utils/helpers");
 
 function setupEventHandlers(client) {
