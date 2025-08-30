@@ -55,19 +55,14 @@ async function searchWithFallbacks(player, originalQuery, requester) {
     
     // Strategy 3: Add "official" to potentially get better quality/format
     `ytsearch:${originalQuery.replace('ytsearch:', '')} official`,
-    
     // Strategy 4: Add "audio" to get audio-only versions (often more stable)
     `ytsearch:${originalQuery.replace('ytsearch:', '')} audio`,
-    
     // Strategy 5: Add "music" to get music-focused results
     `ytsearch:${originalQuery.replace('ytsearch:', '')} music`,
-    
     // Strategy 6: Try without extra words that might complicate search
     `ytsearch:${originalQuery.replace('ytsearch:', '').split(' ').slice(0, 4).join(' ')}`,
-    
     // Strategy 7: Add "topic" to get auto-generated music videos (often more stable)
     `ytsearch:${originalQuery.replace('ytsearch:', '')} topic`,
-    
     // Strategy 8: Try with "lyrics" to get lyric videos (different encoding)
     `ytsearch:${originalQuery.replace('ytsearch:', '')} lyrics`
   ].filter(Boolean);
@@ -198,6 +193,7 @@ function clearRetryMap() {
 }
 
 module.exports = {
+
   getTrackKey,
   hasRecentlyRetried,
   markRetryAttempt,
