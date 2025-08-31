@@ -41,10 +41,14 @@ plugins:
     password: "${YOUTUBE_PASSWORD}"
     # Multiple clients for better reliability
     clients:
-      - "WEB"
       - "ANDROID_VR"
       - "ANDROID_MUSIC" 
+      - "WEB"
+      - "MWEB"
+      - "WEBEMBEDDED"
       - "MUSIC"
+      - "ANDROID"
+      - "IOS"
       - "TVHTML5EMBEDDED"
     # Client-specific settings
     ANDROID_MUSIC:
