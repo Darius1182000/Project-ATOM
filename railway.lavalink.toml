@@ -3,6 +3,6 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile.lavalink"
 
 [deploy]
-healthcheckPath = "/v4/info"
+# healthcheckPath = "/v4/info"
 healthcheckTimeout = 100
 restartPolicyType = "on_failure"
