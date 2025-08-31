@@ -1,0 +1,13 @@
+FROM ghcr.io/lavalink-devs/lavalink:4
+
+# Copy configuration
+COPY lavalink.yaml /opt/Lavalink/application.yml
+
+# Create plugins directory and copy any plugins
+COPY plugins/ /opt/Lavalink/plugins/
+
+# Expose port
+EXPOSE 2333
+
+# Use default Lavalink startup command
+CMD ["java", "-jar", "Lavalink.jar"]
