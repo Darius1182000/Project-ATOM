@@ -41,6 +41,7 @@ plugins:
     password: "${YOUTUBE_PASSWORD}"
     # Multiple clients for better reliability
     clients:
+      - "MUSIC"
       - "ANDROID_VR"
       - "ANDROID_MUSIC" 
       - "WEB"
@@ -110,4 +111,4 @@ logging:
     lavalink: INFO
     # Enable debug logging for plugin issues
     com.github.topi314.lavasrc: DEBUG
-    dev.lavalink.youtube: INFO
+    dev.lavalink.youtube: DEBUG
