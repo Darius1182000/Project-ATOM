@@ -37,6 +37,8 @@ plugins:
     allowSearch: true
     allowDirectVideoIds: true
     allowDirectPlaylistIds: true
+    email: "${YOUTUBE_EMAIL}"
+    password: "${YOUTUBE_PASSWORD}"
     # Multiple clients for better reliability
     clients:
       - "ANDROID_VR"
