@@ -45,14 +45,6 @@ function setupEventHandlers(client) {
     });
   });
 
-  process.on("uncaughtException", (error) => {
-    console.error("❌ Uncaught exception:", error.message || error);
-  });
-
-  process.on("unhandledRejection", (reason) => {
-    console.error("❌ Unhandled promise rejection:", reason);
-  });
-
   // Track events
   manager.on("trackStart", (player, track) => {
     console.log("🎵 Track started:", track.info?.title || track.title);
