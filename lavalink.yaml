@@ -116,5 +116,5 @@ logging:
     root: INFO
     lavalink: INFO
     # Enable debug logging for plugin issues
-    com.github.topi314.lavasrc: DEBUG
-    dev.lavalink.youtube: DEBUG
+    com.github.topi314.lavasrc: WARN
+    dev.lavalink.youtube: WARN
