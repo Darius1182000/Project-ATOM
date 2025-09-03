@@ -34,11 +34,13 @@ plugins:
   # YouTube Plugin Configuration
   youtube:
     enabled: true
+    oauth:
+      enabled: true
+      refreshToken: "${YOUTUBE_REFRESH_TOKEN}"
     allowSearch: true
     allowDirectVideoIds: true
     allowDirectPlaylistIds: true
-    email: "${YOUTUBE_EMAIL}"
-    password: "${YOUTUBE_PASSWORD}"
+    cookiesFile: "cookies.txt"
     # Multiple clients for better reliability
     clients:
       - "ANDROID_VR"
