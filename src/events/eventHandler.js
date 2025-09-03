@@ -25,6 +25,12 @@ function setupEventHandlers(client) {
     console.error("❌ LavalinkManager error:", error);
   });
 
+  manager.on("nodeCreate", (node) => {
+    node.on("error", (error) => {
+    console.error(`❌ Node "${node.options.id}" internal error: ${error.message || error}`);
+  });
+  });
+
   // Track events
   manager.on("trackStart", (player, track) => {
     console.log("🎵 Track started:", track.info?.title || track.title);
