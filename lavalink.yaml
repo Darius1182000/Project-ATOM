@@ -43,9 +43,9 @@ plugins:
     cookiesFile: "cookies.txt"
     # Multiple clients for better reliability
     clients:
+      - "WEB"
       - "ANDROID_VR"
       - "ANDROID_MUSIC" 
-      - "WEB"
       - "MWEB"
       - "WEBEMBEDDED"
       - "MUSIC"
