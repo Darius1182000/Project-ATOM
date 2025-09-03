@@ -24,7 +24,7 @@ lavalink:
 
   plugins:
     # LavaSrc plugin for Spotify, Apple Music, Deezer, etc.
-    - dependency: "com.github.topi314.lavasrc:lavasrc-plugin:4.2.0"
+    - dependency: "com.github.topi314.lavasrc:lavasrc-plugin:4.8.0"
       repository: "https://maven.lavalink.dev/releases"
     # YouTube plugin (separate from LavaSrc)
     - dependency: "dev.lavalink.youtube:youtube-plugin:1.13.5"
