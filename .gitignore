@@ -1,3 +1,5 @@
 node_modules
+plugins
+logs
 .DS_Store
 .env
