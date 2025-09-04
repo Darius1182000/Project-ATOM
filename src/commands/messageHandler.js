@@ -193,7 +193,7 @@ if (command === "skip") {
     if (player.repeatMode === "off" || !player.repeatMode) {
       newLoopMode = "track";
       sendMessage(message.channel, "Loop enabled: The current song will repeat.");
-    } else if (player.loop === "track") {
+    } else if (player.repeatMode === "track") {
       newLoopMode = "queue";
       sendMessage(message.channel, "Queue loop enabled: The entire queue will repeat.");
     } else {
