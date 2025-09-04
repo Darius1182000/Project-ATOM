@@ -5,7 +5,7 @@ server:
 lavalink:
   server:
     sources:
-      youtube: false # disable youtube on lavalink to use youtube-source plugin
+      youtube: false
       bandcamp: true
       soundcloud: true
       twitch: true
@@ -13,25 +13,28 @@ lavalink:
       mixer: true
       http: true
       local: false
+    queueOptions:
+      maxPreviousTracks: 5
     password: "youshallnotpass"
     bufferDurationMs: 400
-    frameBufferDurationMs: 5000
+    frameBufferDurationMs: 2500
     youtubePlaylistLoadLimit: 6
-    playerUpdateInterval: 5
+    playerUpdateInterval: 50 # in ms, default 5
+    opusEncodingQuality: 5
+    resamplingQuality: MEDIUM
+    trackStuckThresholdMs: 5000
+    useSeekGhosting: true
     youtubeSearchEnabled: true
     soundcloudSearchEnabled: true
-    gc-warnings: true
+    gc-warnings: false
 
   plugins:
-    # LavaSrc plugin for Spotify, Apple Music, Deezer, etc.
     - dependency: "com.github.topi314.lavasrc:lavasrc-plugin:4.8.0"
       repository: "https://maven.lavalink.dev/releases"
-    # YouTube plugin (separate from LavaSrc)
     - dependency: "dev.lavalink.youtube:youtube-plugin:1.13.5"
       repository: "https://maven.lavalink.dev/releases"
 
 plugins:
-  # YouTube Plugin Configuration
   youtube:
     enabled: true
     oauth:
@@ -40,8 +43,6 @@ plugins:
     allowSearch: true
     allowDirectVideoIds: true
     allowDirectPlaylistIds: true
-    cookiesFile: "cookies.txt"
-    # Multiple clients for better reliability
     clients:
       - "WEB"
       - "ANDROID_VR"
@@ -52,7 +53,6 @@ plugins:
       - "ANDROID"
       - "IOS"
       - "TVHTML5EMBEDDED"
-    # Client-specific settings
     ANDROID_MUSIC:
       playlistLoading: false
       videoLoading: true
@@ -69,20 +69,15 @@ plugins:
       searching: false
       playback: true
 
-  # LavaSrc Plugin Configuration  
   lavasrc:
     providers:
-      # Define search providers priority
       - "ytsearch:\"%ISRC%\""
       - "ytsearch:%QUERY%"      # YouTube search (via YouTube plugin)
       - "ytmsearch:%QUERY%"     # YouTube Music search
       - "spsearch:%QUERY%"      # Spotify search
     sources:
-      # Enable Spotify support
       spotify: true
-      # Keep YouTube enabled for metadata
       youtube: true
-      # Disable other sources we don't need
       applemusic: false
       deezer: false
       yandexmusic: false
@@ -94,7 +89,6 @@ plugins:
       jiosaavn: false
       soundcloud: false
     
-    # Spotify Configuration
     spotify:
       clientId: "${SPOTIFY_CLIENT_ID}"
       clientSecret: "${SPOTIFY_CLIENT_SECRET}"
@@ -104,7 +98,6 @@ plugins:
       albumLoadLimit: 6                   # Max albums to load at once
       localFiles: false                   # Don't load local files
       
-    # YouTube Music Configuration (via LavaSrc)
     youtube:
       countryCode: "RO"
       playlistLoadLimit: 6
