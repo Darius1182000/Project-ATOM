@@ -43,6 +43,18 @@ function setupEventHandlers(client) {
         `❌ Node "${node.options.id}" internal error: ${error.message || error}`
       );
     });
+
+  node.on("trackStuck", (player, track) => {
+    if (player.queue.tracks.length > 0) {
+      player.skip();
+    } else if (player.repeatMode === "track") {
+      player.queue.add(player.queue.current);
+      player.stop(); 
+      console.log(`Track restarted due to loop: ${track.info.title}`);
+    } else {
+      console.log(`Track stuck detected but queue is empty: ${track.info.title}`);
+    }
+  });
   });
 
   // Track events
