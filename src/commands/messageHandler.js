@@ -1,6 +1,6 @@
 const { sendMessage, formatDuration } = require("../utils/helpers");
 const { trackRetryMap, getTrackKey, clearRetryMap, isSpotifyUrl } = require("../utils/trackUtils");
-const { playMusic, playSpotify, playYouTube } = require("./musicCommands");
+const { playMusic } = require("./musicCommands");
 
 async function handleMessage(message) {
   if (message.author.bot || !message.guild) return;
@@ -19,16 +19,6 @@ async function handleMessage(message) {
   // Enhanced music commands with Spotify support
   if (command === "play" || command === "p") {
     await playMusic(message, args.join(" "));
-  }
-  
-  // Spotify-specific commands
-  if (command === "spotify" || command === "sp") {
-    await playSpotify(message, args.join(" "));
-  }
-  
-  // YouTube-specific commands  
-  if (command === "youtube" || command === "yt") {
-    await playYouTube(message, args.join(" "));
   }
   
   // Debug and utility commands
@@ -60,19 +50,6 @@ async function handleMessage(message) {
     }
     
     await playMusic(message, testUrl);
-  }
-  
-  if (command === "testspotify") {
-    // Test specifically Spotify functionality
-    const spotifyTestUrls = [
-      "https://open.spotify.com/track/4iV5W9uYEdYUVa79Axb7Rh", // Never Gonna Give You Up
-      "https://open.spotify.com/track/7qiZfU4dY1lWllzX7mPBI3", // Shape of You
-      "spsearch:Bohemian Rhapsody Queen"
-    ];
-    
-    const testUrl = args[0] ? args.join(" ") : spotifyTestUrls[Math.floor(Math.random() * spotifyTestUrls.length)];
-    sendMessage(message.channel, `Testing Spotify integration with: ${testUrl}`);
-    await playSpotify(message, testUrl);
   }
   
   if (command === "status") {
@@ -302,46 +279,7 @@ if (command === "skip") {
       sendMessage(message.channel, "❌ **YouTube connectivity: POOR** - All test searches failed\n💡 Try restarting Lavalink or check your configuration");
     }
   }
-  
-  if (command === "checkspotify") {
-    const manager = message.client.manager;
-    const testSpotifyQueries = [
-      "spsearch:Never Gonna Give You Up",
-      "https://open.spotify.com/track/4iV5W9uYEdYUVa79Axb7Rh"
-    ];
-    
-    sendMessage(message.channel, "🩺 **Checking Spotify connectivity...**");
-    
-    let workingCount = 0;
-    for (const testQuery of testSpotifyQueries) {
-      try {
-        const player = manager.players.get(message.guild.id);
-        if (!player) {
-          sendMessage(message.channel, "⚠️ No active player found. Join a voice channel first.");
-          return;
-        }
-        
-        const result = await player.search(testQuery, message.author);
-        if (result && result.tracks && result.tracks.length > 0) {
-          workingCount++;
-          console.log(`✅ Spotify test "${testQuery}" successful`);
-        } else {
-          console.log(`❌ Spotify test "${testQuery}" returned no results`);
-        }
-      } catch (error) {
-        console.log(`❌ Spotify test "${testQuery}" failed:`, error.message);
-      }
-    }
-    
-    if (workingCount === testSpotifyQueries.length) {
-      sendMessage(message.channel, "✅ **Spotify connectivity: GOOD** - All test searches successful");
-    } else if (workingCount > 0) {
-      sendMessage(message.channel, `⚠️ **Spotify connectivity: PARTIAL** - ${workingCount}/${testSpotifyQueries.length} test searches successful`);
-    } else {
-      sendMessage(message.channel, "❌ **Spotify connectivity: POOR** - All test searches failed\n💡 Check your Spotify credentials in Lavalink configuration");
-    }
-  }
-  
+
   // Alternative search commands  
   if (command === "alt" || command === "alternative") {
     const { handleAlternativeSearch } = require("./alternativeSearch");
@@ -359,8 +297,6 @@ if (command === "skip") {
     
 **Basic Commands:**
 \`.play <query/url>\` - Play from YouTube or Spotify
-\`.spotify <query/url>\` - Search/play from Spotify
-\`.youtube <query/url>\` - Search/play from YouTube only
 \`.pause\` - Pause/resume playback
 \`.skip\` - Skip current track
 \`.stop\` - Stop and disconnect
@@ -379,7 +315,6 @@ if (command === "skip") {
 **Utility:**
 \`.retry\` - Force retry current track
 \`.health\` - Check YouTube connectivity
-\`.checkspotify\` - Check Spotify connectivity
 \`.status\` - Show detailed player status
 
 **Supported Sources:**
