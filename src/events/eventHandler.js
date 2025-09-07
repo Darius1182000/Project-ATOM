@@ -69,8 +69,7 @@ function setupEventHandlers(client) {
     const channel = client.channels.cache.get(player.textChannelId);
     const trackKey = getTrackKey(track);
     
-    // Only send "Now Playing" message if we're not in the middle of searching for alternatives
-    if (channel && !ongoingSearches.has(trackKey)) {
+    if (channel && !ongoingSearches.has(trackKey) && player.repeatMode !== "track") {
       const title = track.info?.title || track.title || "Unknown Title";
       const author = track.info?.author || "Unknown Artist";
       sendMessage(channel, `🎵 **Now Playing:** ${title} by ${author}`);
