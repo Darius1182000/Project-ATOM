@@ -65,11 +65,15 @@ function setupEventHandlers(client) {
   // Track events
   manager.on("trackStart", (player, track) => {
     console.log("🎵 Track started:", track.info?.title || track.title);
-    
+
     const channel = client.channels.cache.get(player.textChannelId);
     const trackKey = getTrackKey(track);
-    
-    if (channel && !ongoingSearches.has(trackKey) && player.repeatMode !== "track") {
+
+    if (
+      channel &&
+      !ongoingSearches.has(trackKey) &&
+      player.repeatMode !== "track"
+    ) {
       const title = track.info?.title || track.title || "Unknown Title";
       const author = track.info?.author || "Unknown Artist";
       sendMessage(channel, `🎵 **Now Playing:** ${title} by ${author}`);
@@ -83,6 +87,8 @@ function setupEventHandlers(client) {
       "Reason:",
       payload?.reason
     );
+    delete track.userData;
+    delete track.requester;
   });
 
   // Enhanced Track Error Handler
@@ -140,7 +146,7 @@ function setupEventHandlers(client) {
       // Mark this track as being searched for alternatives
       ongoingSearches.set(trackKey, {
         originalTitle: track.info?.title || "Unknown Title",
-        startTime: Date.now()
+        startTime: Date.now(),
       });
 
       // Send the initial error message ONCE
@@ -227,7 +233,7 @@ function setupEventHandlers(client) {
 
                 // Clean up search tracking and send success message
                 ongoingSearches.delete(trackKey);
-                
+
                 if (channel) {
                   sendMessage(
                     channel,
@@ -312,7 +318,7 @@ function setupEventHandlers(client) {
       // Mark this track as being searched for alternatives
       ongoingSearches.set(trackKey, {
         originalTitle: track.info?.title || "Unknown Title",
-        startTime: Date.now()
+        startTime: Date.now(),
       });
 
       // Send the initial error message ONCE
@@ -411,7 +417,7 @@ function setupEventHandlers(client) {
 
             // Clean up search tracking and send success message
             ongoingSearches.delete(trackKey);
-            
+
             if (channel) {
               sendMessage(
                 channel,
@@ -493,7 +499,7 @@ function setupEventHandlers(client) {
   manager.on("queueEnd", (player) => {
     const channel = client.channels.cache.get(player.textChannelId);
     const hadMultipleSongs = (player.queue.previous?.length || 0) >= 2;
-    
+
     if (channel && hadMultipleSongs) {
       sendMessage(
         channel,
@@ -513,14 +519,30 @@ function setupEventHandlers(client) {
 
   // Clean up old search entries periodically (prevent memory leaks)
   setInterval(() => {
+    const MAX_SEARCH_ENTRIES = 200;
     const now = Date.now();
     const maxAge = 5 * 60 * 1000; // 5 minutes
-    
+
     for (const [trackKey, searchInfo] of ongoingSearches.entries()) {
       if (now - searchInfo.startTime > maxAge) {
-        console.log(`🧹 Cleaning up old search entry for: ${searchInfo.originalTitle}`);
+        console.log(
+          `🧹 Cleaning up old search entry for: ${searchInfo.originalTitle}`
+        );
         ongoingSearches.delete(trackKey);
       }
+    }
+
+    if (ongoingSearches.size > MAX_SEARCH_ENTRIES) {
+      const excess = ongoingSearches.size - MAX_SEARCH_ENTRIES;
+      let count = 0;
+      for (const [key] of ongoingSearches) {
+        ongoingSearches.delete(key);
+        count++;
+        if (count >= excess) break;
+      }
+      console.log(
+        `🧹 Pruned ${count} oldest entries (limit ${MAX_SEARCH_ENTRIES})`
+      );
     }
   }, 60 * 1000); // Check every minute
 }
