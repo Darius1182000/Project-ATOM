@@ -169,7 +169,7 @@ async function handleMessage(message) {
         player.pause(true);
         sendMessage(message.channel, "Paused the music!");
       } catch (error) {
-        sendMessage(message.channel, `❌ ${err.message}`);
+        sendMessage(message.channel, `❌ ${error.message}`);
       }
     } else {
       sendMessage(message.channel, "Nothing is playing right now.");
