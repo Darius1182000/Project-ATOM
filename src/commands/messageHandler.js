@@ -165,11 +165,11 @@ async function handleMessage(message) {
     const player = manager.players.get(message.guild.id);
 
     if (player && player.queue.current) {
-      try {
+      if (player.paused) {
+        sendMessage(message.channel, "The music is already paused!");
+      } else {
         player.pause(true);
         sendMessage(message.channel, "Paused the music!");
-      } catch (error) {
-        sendMessage(message.channel, `❌ ${error.message}`);
       }
     } else {
       sendMessage(message.channel, "Nothing is playing right now.");
