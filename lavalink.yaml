@@ -15,7 +15,7 @@ lavalink:
       local: false
     queueOptions:
       maxPreviousTracks: 5
-    password: "youshallnotpass"
+    password: 'youshallnotpass'
     bufferDurationMs: 400
     frameBufferDurationMs: 2500
     youtubePlaylistLoadLimit: 6
@@ -29,30 +29,30 @@ lavalink:
     gc-warnings: false
 
   plugins:
-    - dependency: "com.github.topi314.lavasrc:lavasrc-plugin:4.8.0"
-      repository: "https://maven.lavalink.dev/releases"
-    - dependency: "dev.lavalink.youtube:youtube-plugin:1.13.5"
-      repository: "https://maven.lavalink.dev/releases"
+    - dependency: 'com.github.topi314.lavasrc:lavasrc-plugin:4.8.0'
+      repository: 'https://maven.lavalink.dev/releases'
+    - dependency: 'dev.lavalink.youtube:youtube-plugin:1.13.5'
+      repository: 'https://maven.lavalink.dev/releases'
 
 plugins:
   youtube:
     enabled: true
     oauth:
       enabled: true
-      refreshToken: "${YOUTUBE_REFRESH_TOKEN}"
+      refreshToken: '${YOUTUBE_REFRESH_TOKEN}'
     allowSearch: true
     allowDirectVideoIds: true
     allowDirectPlaylistIds: true
     clients:
-      - "WEB"
-      - "ANDROID_VR"
-      - "ANDROID_MUSIC" 
-      - "MWEB"
-      - "WEBEMBEDDED"
-      - "MUSIC"
-      - "ANDROID"
-      - "IOS"
-      - "TVHTML5EMBEDDED"
+      - 'WEB'
+      - 'ANDROID_VR'
+      - 'ANDROID_MUSIC'
+      - 'MWEB'
+      - 'WEBEMBEDDED'
+      - 'MUSIC'
+      - 'ANDROID'
+      - 'IOS'
+      - 'TVHTML5EMBEDDED'
     ANDROID_MUSIC:
       playlistLoading: false
       videoLoading: true
@@ -71,10 +71,10 @@ plugins:
 
   lavasrc:
     providers:
-      - "ytsearch:\"%ISRC%\""
-      - "ytsearch:%QUERY%"      # YouTube search (via YouTube plugin)
-      - "ytmsearch:%QUERY%"     # YouTube Music search
-      - "spsearch:%QUERY%"      # Spotify search
+      - 'ytsearch:"%ISRC%"'
+      - 'ytsearch:%QUERY%' # YouTube search (via YouTube plugin)
+      - 'ytmsearch:%QUERY%' # YouTube Music search
+      - 'spsearch:%QUERY%' # Spotify search
     sources:
       spotify: true
       youtube: true
@@ -88,18 +88,18 @@ plugins:
       vimeo: false
       jiosaavn: false
       soundcloud: false
-    
+
     spotify:
-      clientId: "${SPOTIFY_CLIENT_ID}"
-      clientSecret: "${SPOTIFY_CLIENT_SECRET}"
+      clientId: '${SPOTIFY_CLIENT_ID}'
+      clientSecret: '${SPOTIFY_CLIENT_SECRET}'
       #spDc: "${SPOTIFY_SP_DC:}"           # Optional but recommended for better access
-      countryCode: "RO"                   # Your country code
-      playlistLoadLimit: 6                # Max playlists to load at once  
-      albumLoadLimit: 6                   # Max albums to load at once
-      localFiles: false                   # Don't load local files
-      
+      countryCode: 'RO' # Your country code
+      playlistLoadLimit: 6 # Max playlists to load at once
+      albumLoadLimit: 6 # Max albums to load at once
+      localFiles: false # Don't load local files
+
     youtube:
-      countryCode: "RO"
+      countryCode: 'RO'
       playlistLoadLimit: 6
       albumLoadLimit: 6
       artistLoadLimit: 6

@@ -29,7 +29,7 @@ async function playMusic(message, query) {
         voiceChannelId: voiceChannel.id,
         textChannelId: message.channel.id,
         selfDeafen: true,
-        volume: 75,
+        volume: 50,
       });
     } catch (err) {
       console.error("Error creating player:", err);

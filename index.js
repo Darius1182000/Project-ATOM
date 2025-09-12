@@ -1,9 +1,9 @@
-require("dotenv").config();
-const { Client, GatewayIntentBits } = require("discord.js");
-const { initializeLavalink } = require("./src/lavalink/lavalinkManager.js");
-const { setupEventHandlers } = require("./src/events/eventHandler");
-const { handleMessage } = require("./src/commands/messageHandler");
-const { validateEnvironment } = require("./src/utils/environment");
+require('dotenv').config();
+const { Client, GatewayIntentBits } = require('discord.js');
+const { initializeLavalink } = require('./src/lavalink/lavalinkManager.js');
+const { setupEventHandlers } = require('./src/events/eventHandler');
+const { handleMessage } = require('./src/commands/messageHandler');
+const { validateEnvironment } = require('./src/utils/environment');
 
 // --- Environment Variable Validation ---
 const envVars = validateEnvironment();
@@ -14,8 +14,8 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildVoiceStates,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-  ],
+    GatewayIntentBits.MessageContent
+  ]
 });
 
 // --- Initialize Lavalink ---
@@ -25,37 +25,38 @@ client.manager = initializeLavalink(client, envVars);
 setupEventHandlers(client);
 
 // --- Message Handler ---
-client.on("messageCreate", handleMessage);
+client.on('messageCreate', handleMessage);
 
 // --- BOT IS READY EVENT ---
-client.on("ready", async () => {
+client.on('ready', async () => {
   console.log(`✅ Bot logged in as ${client.user.tag}!`);
 
   try {
     await client.manager.init(client.user);
-    console.log("✅ LavalinkManager initialized successfully.");
-    
+    console.log('✅ LavalinkManager initialized successfully.');
+
     setTimeout(() => {
       const totalNodes = client.manager.nodeManager.nodes.size;
-      const connectedNodes = Array.from(client.manager.nodeManager.nodes.values()).filter(node => node.connected);
+      const connectedNodes = Array.from(client.manager.nodeManager.nodes.values()).filter((node) => node.connected);
       console.log(`📊 Connected Lavalink nodes: ${connectedNodes.length}/${totalNodes}`);
-      
+
       if (connectedNodes.length > 0) {
-        console.log("🎵 Music system is ready!");
+        console.log('🎵 Music system is ready!');
       } else {
-        console.log("⚠️ No Lavalink nodes connected yet. Checking connection...");
-        client.manager.nodeManager.nodes.forEach(node => {
-          console.log(`🔍 Node ${node.options.host}:${node.options.port} - Connected: ${node.connected}, Alive: ${node.isAlive}`);
+        console.log('⚠️ No Lavalink nodes connected yet. Checking connection...');
+        client.manager.nodeManager.nodes.forEach((node) => {
+          console.log(
+            `🔍 Node ${node.options.host}:${node.options.port} - Connected: ${node.connected}, Alive: ${node.isAlive}`
+          );
         });
       }
     }, 5000);
-    
   } catch (err) {
-    console.error("❌ LavalinkManager failed to initialize:", err);
+    console.error('❌ LavalinkManager failed to initialize:', err);
   }
 });
 
-client.on("raw", (packet) => {
+client.on('raw', (packet) => {
   client.manager.sendRawData(packet);
 });
 

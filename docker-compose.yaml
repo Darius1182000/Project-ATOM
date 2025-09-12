@@ -8,7 +8,7 @@ services:
       - ./plugins:/opt/Lavalink/plugins
       - ./logs:/opt/Lavalink/logs
     ports:
-      - "2333:2333"
+      - '2333:2333'
     networks:
       - lavalink
     env_file:
