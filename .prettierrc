@@ -3,5 +3,6 @@
   "proseWrap": "never",
   "singleQuote": true,
   "semi": true,
-  "trailingComma": "none"
+  "trailingComma": "none",
+  "endOfLine": "lf"
 }

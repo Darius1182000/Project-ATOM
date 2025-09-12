@@ -1,10 +1,5 @@
-const {
-  getTrackKey,
-  hasRecentlyRetried,
-  markRetryAttempt,
-  searchWithFallbacks,
-} = require("../utils/trackUtils");
-const { sendMessage } = require("../utils/helpers");
+const { getTrackKey, hasRecentlyRetried, markRetryAttempt, searchWithFallbacks } = require('../utils/trackUtils');
+const { sendMessage } = require('../utils/helpers');
 
 // Add a tracking system for ongoing searches to prevent message spam
 const ongoingSearches = new Map();
@@ -13,124 +8,93 @@ function setupEventHandlers(client) {
   const manager = client.manager;
 
   // Node connection events
-  manager.on("nodeConnect", (node) => {
-    console.log(
-      `✅ Lavalink node "${node.identifier}" connected successfully!`
-    );
+  manager.on('nodeConnect', (node) => {
+    console.log(`✅ Lavalink node "${node.identifier}" connected successfully!`);
   });
 
-  manager.on("nodeDisconnect", (node, reason) => {
-    console.log(
-      `❌ Lavalink node "${node.identifier}" disconnected: ${reason}`
-    );
+  manager.on('nodeDisconnect', (node, reason) => {
+    console.log(`❌ Lavalink node "${node.identifier}" disconnected: ${reason}`);
   });
 
-  manager.on("nodeError", (node, error) => {
-    console.error(
-      `❌ Lavalink node "${node.identifier}" encountered an error:`,
-      error
-    );
+  manager.on('nodeError', (node, error) => {
+    console.error(`❌ Lavalink node "${node.identifier}" encountered an error:`, error);
   });
 
-  manager.on("nodeReconnect", (node) => {
+  manager.on('nodeReconnect', (node) => {
     console.log(`🔄 Lavalink node "${node.identifier}" is reconnecting...`);
   });
 
-  manager.on("error", (error) => {
-    console.error("❌ LavalinkManager error:", error);
+  manager.on('error', (error) => {
+    console.error('❌ LavalinkManager error:', error);
   });
 
-  manager.on("nodeCreate", (node) => {
-    node.on("error", (error) => {
-      console.error(
-        `❌ Node "${node.options.id}" internal error: ${error.message || error}`
-      );
+  manager.on('nodeCreate', (node) => {
+    node.on('error', (error) => {
+      console.error(`❌ Node "${node.options.id}" internal error: ${error.message || error}`);
     });
 
-    node.on("trackStuck", (player, track) => {
+    node.on('trackStuck', (player, track) => {
       if (player.queue.tracks.length > 0) {
         player.skip();
-      } else if (player.repeatMode === "track") {
+      } else if (player.repeatMode === 'track') {
         player.queue.add(player.queue.current);
         player.stop();
         console.log(`Track restarted due to loop: ${track.info.title}`);
       } else {
-        console.log(
-          `Track stuck detected but queue is empty: ${track.info.title}`
-        );
+        console.log(`Track stuck detected but queue is empty: ${track.info.title}`);
       }
     });
   });
 
   // Track events
-  manager.on("trackStart", (player, track) => {
-    console.log("🎵 Track started:", track.info?.title || track.title);
+  manager.on('trackStart', (player, track) => {
+    console.log('🎵 Track started:', track.info?.title || track.title);
 
     const channel = client.channels.cache.get(player.textChannelId);
     const trackKey = getTrackKey(track);
 
-    if (
-      channel &&
-      !ongoingSearches.has(trackKey) &&
-      player.repeatMode !== "track"
-    ) {
-      const title = track.info?.title || track.title || "Unknown Title";
-      const author = track.info?.author || "Unknown Artist";
+    if (channel && !ongoingSearches.has(trackKey) && player.repeatMode !== 'track') {
+      const title = track.info?.title || track.title || 'Unknown Title';
+      const author = track.info?.author || 'Unknown Artist';
       sendMessage(channel, `🎵 **Now Playing:** ${title} by ${author}`);
     }
   });
 
-  manager.on("trackEnd", (player, track, payload) => {
-    console.log(
-      "🔚 Track ended:",
-      track.info?.title || track.title,
-      "Reason:",
-      payload?.reason
-    );
+  manager.on('trackEnd', (player, track, payload) => {
+    console.log('🔚 Track ended:', track.info?.title || track.title, 'Reason:', payload?.reason);
     delete track.userData;
     delete track.requester;
   });
 
   // Enhanced Track Error Handler
-  manager.on("trackError", async (player, track, payload) => {
-    console.log(
-      "❌ Track error:",
-      track.info?.title || track.title,
-      "Error:",
-      payload
-    );
+  manager.on('trackError', async (player, track, payload) => {
+    console.log('❌ Track error:', track.info?.title || track.title, 'Error:', payload);
     const channel = client.channels.cache.get(player.textChannelId);
 
     // Check for different types of errors
     const isDecodingError =
-      payload.exception?.cause?.includes("AacDecoder") ||
-      payload.exception?.cause?.includes("Expected decoding to halt") ||
-      payload.exception?.message?.includes("decoding") ||
-      payload.exception?.message?.includes(
-        "Something went wrong when decoding"
-      );
+      payload.exception?.cause?.includes('AacDecoder') ||
+      payload.exception?.cause?.includes('Expected decoding to halt') ||
+      payload.exception?.message?.includes('decoding') ||
+      payload.exception?.message?.includes('Something went wrong when decoding');
 
     const isSignInError =
-      payload.exception?.message?.includes("Please sign in") ||
-      payload.exception?.message?.includes("Sign in to confirm") ||
-      payload.exception?.cause?.includes("Please sign in");
+      payload.exception?.message?.includes('Please sign in') ||
+      payload.exception?.message?.includes('Sign in to confirm') ||
+      payload.exception?.cause?.includes('Please sign in');
 
     const trackKey = getTrackKey(track);
 
     if (isSignInError) {
-      console.log(
-        "🔐 YouTube sign-in error detected - trying alternative search..."
-      );
+      console.log('🔐 YouTube sign-in error detected - trying alternative search...');
 
       // Check if we've recently retried this track to prevent loops
       if (hasRecentlyRetried(trackKey)) {
-        console.log("⚠️ Track recently retried, skipping to avoid loop");
+        console.log('⚠️ Track recently retried, skipping to avoid loop');
         if (channel) {
           sendMessage(
             channel,
-            `❌ **YouTube access blocked:** ${
-              track.info?.title || "Unknown Title"
-            } (authentication required)`
+            `❌ **YouTube access blocked:** ${track.info?.title || 'Unknown Title'} (authentication required)`
           );
         }
 
@@ -145,35 +109,31 @@ function setupEventHandlers(client) {
 
       // Mark this track as being searched for alternatives
       ongoingSearches.set(trackKey, {
-        originalTitle: track.info?.title || "Unknown Title",
-        startTime: Date.now(),
+        originalTitle: track.info?.title || 'Unknown Title',
+        startTime: Date.now()
       });
 
       // Send the initial error message ONCE
       if (channel) {
         sendMessage(
           channel,
-          `🔐 **YouTube access restricted:** ${
-            track.info?.title || "Unknown Title"
-          }\n🔄 Searching for alternatives...`
+          `🔐 **YouTube access restricted:** ${track.info?.title || 'Unknown Title'}\n🔄 Searching for alternatives...`
         );
       }
 
       try {
         // For sign-in errors, try different search approaches
-        const title = track.info?.title || "";
-        const author = track.info?.author || "";
+        const title = track.info?.title || '';
+        const author = track.info?.author || '';
         const searchQuery = `${title} ${author}`.trim();
 
         if (!searchQuery || searchQuery.length < 3) {
-          console.log("❌ Cannot create search query from track info");
+          console.log('❌ Cannot create search query from track info');
           ongoingSearches.delete(trackKey);
           if (channel) {
             sendMessage(
               channel,
-              `❌ **Cannot retry:** ${
-                track.info?.title || "Unknown Title"
-              } (insufficient track info)`
+              `❌ **Cannot retry:** ${track.info?.title || 'Unknown Title'} (insufficient track info)`
             );
           }
 
@@ -189,7 +149,7 @@ function setupEventHandlers(client) {
           `${searchQuery} music`,
           `${searchQuery} official`,
           `${title}`.trim(),
-          `${author}`.trim(),
+          `${author}`.trim()
         ].filter((search) => search.length > 3);
 
         let foundAlternative = false;
@@ -203,30 +163,22 @@ function setupEventHandlers(client) {
               track.requester || track.userData?.requester
             );
 
-            if (
-              retryResult &&
-              retryResult.tracks &&
-              retryResult.tracks.length > 0
-            ) {
+            if (retryResult && retryResult.tracks && retryResult.tracks.length > 0) {
               // Find a different track
               const alternativeTrack =
                 retryResult.tracks.find(
-                  (candidateTrack) =>
-                    candidateTrack.info?.identifier !== track.info?.identifier
+                  (candidateTrack) => candidateTrack.info?.identifier !== track.info?.identifier
                 ) || retryResult.tracks[0];
 
               if (alternativeTrack) {
-                console.log(
-                  `✅ Found alternative via search: "${alternativeTrack.info?.title}"`
-                );
+                console.log(`✅ Found alternative via search: "${alternativeTrack.info?.title}"`);
 
                 // Add requester info
                 if (track.requester) {
                   alternativeTrack.requester = track.requester;
                 } else if (track.userData?.requester) {
                   alternativeTrack.userData = alternativeTrack.userData || {};
-                  alternativeTrack.userData.requester =
-                    track.userData.requester;
+                  alternativeTrack.userData.requester = track.userData.requester;
                 }
 
                 await player.queue.add(alternativeTrack);
@@ -238,18 +190,14 @@ function setupEventHandlers(client) {
                   sendMessage(
                     channel,
                     `✅ **Found alternative:** ${
-                      alternativeTrack.info?.title || "Unknown Title"
-                    } by ${alternativeTrack.info?.author || "Unknown Artist"}`
+                      alternativeTrack.info?.title || 'Unknown Title'
+                    } by ${alternativeTrack.info?.author || 'Unknown Artist'}`
                   );
                 }
 
                 // Start playing if nothing is currently playing
-                if (
-                  !player.playing &&
-                  !player.paused &&
-                  player.queue.tracks.length > 0
-                ) {
-                  console.log("🎬 Starting playback with alternative track...");
+                if (!player.playing && !player.paused && player.queue.tracks.length > 0) {
+                  console.log('🎬 Starting playback with alternative track...');
                   await player.play();
                 }
 
@@ -258,10 +206,7 @@ function setupEventHandlers(client) {
               }
             }
           } catch (altError) {
-            console.log(
-              `❌ Alternative search "${altSearch}" failed:`,
-              altError.message
-            );
+            console.log(`❌ Alternative search "${altSearch}" failed:`, altError.message);
             continue;
           }
         }
@@ -274,7 +219,7 @@ function setupEventHandlers(client) {
             sendMessage(
               channel,
               `❌ **No accessible alternatives found for:** ${
-                track.info?.title || "Unknown Title"
+                track.info?.title || 'Unknown Title'
               }\n💡 Try playing from a different source or use a more specific search term.`
             );
           }
@@ -283,26 +228,19 @@ function setupEventHandlers(client) {
         console.log(`❌ Error during sign-in retry:`, retryError.message);
         ongoingSearches.delete(trackKey);
         if (channel) {
-          sendMessage(
-            channel,
-            `❌ **Error finding alternative for:** ${
-              track.info?.title || "Unknown Title"
-            }`
-          );
+          sendMessage(channel, `❌ **Error finding alternative for:** ${track.info?.title || 'Unknown Title'}`);
         }
       }
     } else if (isDecodingError) {
-      console.log("🔄 Audio decoding error detected...");
+      console.log('🔄 Audio decoding error detected...');
 
       // Check if we've recently retried this track to prevent loops
       if (hasRecentlyRetried(trackKey)) {
-        console.log("⚠️ Track recently retried, skipping to avoid loop");
+        console.log('⚠️ Track recently retried, skipping to avoid loop');
         if (channel) {
           sendMessage(
             channel,
-            `❌ **Skipping problematic track:** ${
-              track.info?.title || "Unknown Title"
-            } (repeated decoding issues)`
+            `❌ **Skipping problematic track:** ${track.info?.title || 'Unknown Title'} (repeated decoding issues)`
           );
         }
 
@@ -317,8 +255,8 @@ function setupEventHandlers(client) {
 
       // Mark this track as being searched for alternatives
       ongoingSearches.set(trackKey, {
-        originalTitle: track.info?.title || "Unknown Title",
-        startTime: Date.now(),
+        originalTitle: track.info?.title || 'Unknown Title',
+        startTime: Date.now()
       });
 
       // Send the initial error message ONCE
@@ -326,26 +264,24 @@ function setupEventHandlers(client) {
         sendMessage(
           channel,
           `❌ **Audio decoding error:** ${
-            track.info?.title || "Unknown Title"
+            track.info?.title || 'Unknown Title'
           }\n🔄 Searching for alternative version...`
         );
       }
 
       try {
         // Create search query from track info
-        const title = track.info?.title || "";
-        const author = track.info?.author || "";
+        const title = track.info?.title || '';
+        const author = track.info?.author || '';
         const searchQuery = `${title} ${author}`.trim();
 
         if (!searchQuery || searchQuery.length < 3) {
-          console.log("❌ Cannot create search query from track info");
+          console.log('❌ Cannot create search query from track info');
           ongoingSearches.delete(trackKey);
           if (channel) {
             sendMessage(
               channel,
-              `❌ **Cannot find alternative for:** ${
-                track.info?.title || "Unknown Title"
-              } (insufficient track info)`
+              `❌ **Cannot find alternative for:** ${track.info?.title || 'Unknown Title'} (insufficient track info)`
             );
           }
 
@@ -363,34 +299,23 @@ function setupEventHandlers(client) {
           track.requester || track.userData?.requester
         );
 
-        if (
-          retryResult &&
-          retryResult.tracks &&
-          retryResult.tracks.length > 0
-        ) {
+        if (retryResult && retryResult.tracks && retryResult.tracks.length > 0) {
           // Try to find a track that's different from the failed one
           let alternativeTrack = null;
 
           for (const candidateTrack of retryResult.tracks) {
             // Skip if it's the exact same track
             if (candidateTrack.info?.identifier === track.info?.identifier) {
-              console.log("⏭️ Skipping same track identifier");
+              console.log('⏭️ Skipping same track identifier');
               continue;
             }
 
             // Skip if it's too different in duration (probably wrong song)
             if (track.info?.length && candidateTrack.info?.length) {
-              const durationDiff = Math.abs(
-                track.info.length - candidateTrack.info.length
-              );
-              const maxAcceptableDiff = Math.max(
-                60000,
-                track.info.length * 0.3
-              ); // 60s or 30% of original
+              const durationDiff = Math.abs(track.info.length - candidateTrack.info.length);
+              const maxAcceptableDiff = Math.max(60000, track.info.length * 0.3); // 60s or 30% of original
               if (durationDiff > maxAcceptableDiff) {
-                console.log(
-                  `⏭️ Skipping track with very different duration: ${durationDiff}ms difference`
-                );
+                console.log(`⏭️ Skipping track with very different duration: ${durationDiff}ms difference`);
                 continue;
               }
             }
@@ -422,23 +347,19 @@ function setupEventHandlers(client) {
               sendMessage(
                 channel,
                 `✅ **Found alternative:** ${
-                  alternativeTrack.info?.title || "Unknown Title"
-                } by ${alternativeTrack.info?.author || "Unknown Artist"}`
+                  alternativeTrack.info?.title || 'Unknown Title'
+                } by ${alternativeTrack.info?.author || 'Unknown Artist'}`
               );
             }
 
             // Start playing if nothing is currently playing
-            if (
-              !player.playing &&
-              !player.paused &&
-              player.queue.tracks.length > 0
-            ) {
-              console.log("🎬 Starting playbook with alternative track...");
+            if (!player.playing && !player.paused && player.queue.tracks.length > 0) {
+              console.log('🎬 Starting playbook with alternative track...');
               await player.play();
             }
             return;
           } else {
-            console.log("❌ No suitable alternative found");
+            console.log('❌ No suitable alternative found');
           }
         }
       } catch (retryError) {
@@ -450,71 +371,51 @@ function setupEventHandlers(client) {
 
       // If we get here, we couldn't find an alternative
       if (channel) {
-        sendMessage(
-          channel,
-          `❌ **Could not find working alternative for:** ${
-            track.info?.title || "Unknown Title"
-          }`
-        );
+        sendMessage(channel, `❌ **Could not find working alternative for:** ${track.info?.title || 'Unknown Title'}`);
       }
     } else {
       // Handle other types of errors
       if (channel) {
-        const errorMsg = payload.exception?.message || "Unknown error";
-        sendMessage(
-          channel,
-          `❌ **Error playing:** ${
-            track.info?.title || "Unknown Title"
-          }\nReason: ${errorMsg}`
-        );
+        const errorMsg = payload.exception?.message || 'Unknown error';
+        sendMessage(channel, `❌ **Error playing:** ${track.info?.title || 'Unknown Title'}\nReason: ${errorMsg}`);
       }
     }
 
     // Skip to next track if there are more in queue
     if (player.queue.tracks.length > 0) {
-      console.log("⏭️ Skipping to next track due to error");
+      console.log('⏭️ Skipping to next track due to error');
       setTimeout(() => player.skip(), 2000); // Small delay to avoid rapid skipping
     }
   });
 
-  manager.on("trackStuck", (player, track, payload) => {
-    console.log(
-      "⚠️ Track stuck:",
-      track.info?.title || track.title,
-      "Threshold:",
-      payload?.thresholdMs
-    );
+  manager.on('trackStuck', (player, track, payload) => {
+    console.log('⚠️ Track stuck:', track.info?.title || track.title, 'Threshold:', payload?.thresholdMs);
     const channel = client.channels.cache.get(player.textChannelId);
     if (channel) {
-      sendMessage(
-        channel,
-        `⚠️ **Track stuck, skipping:** ${
-          track.info?.title || track.title || "Unknown Title"
-        }`
-      );
+      sendMessage(channel, `⚠️ **Track stuck, skipping:** ${track.info?.title || track.title || 'Unknown Title'}`);
     }
     player.skip();
   });
 
-  manager.on("queueEnd", (player) => {
+  manager.on('queueEnd', (player) => {
     const channel = client.channels.cache.get(player.textChannelId);
     const hadMultipleSongs = (player.queue.previous?.length || 0) >= 2;
 
     if (channel && hadMultipleSongs) {
-      sendMessage(
-        channel,
-        "🔇 Queue ended. Add more songs or I'll leave in 5 minutes!"
-      );
+      sendMessage(channel, "🔇 Queue ended. Add more songs or I'll leave in 5 minutes!");
     }
 
-    setTimeout(() => {
-      if (!player.queue.current && player.queue.tracks.length === 0) {
-        player.destroy();
-        if (channel) {
-          sendMessage(channel, "👋 Left the voice channel due to inactivity.");
+    setTimeout(
+      () => {
+        if (!player.queue.current && player.queue.tracks.length === 0) {
+          player.destroy();
+          if (channel) {
+            sendMessage(channel, '👋 Left the voice channel due to inactivity.');
+          }
         }
-      }
-    }, 5 * 60 * 1000);
+      },
+      5 * 60 * 1000
+    );
   });
 
   // Clean up old search entries periodically (prevent memory leaks)
@@ -525,9 +426,7 @@ function setupEventHandlers(client) {
 
     for (const [trackKey, searchInfo] of ongoingSearches.entries()) {
       if (now - searchInfo.startTime > maxAge) {
-        console.log(
-          `🧹 Cleaning up old search entry for: ${searchInfo.originalTitle}`
-        );
+        console.log(`🧹 Cleaning up old search entry for: ${searchInfo.originalTitle}`);
         ongoingSearches.delete(trackKey);
       }
     }
@@ -540,9 +439,7 @@ function setupEventHandlers(client) {
         count++;
         if (count >= excess) break;
       }
-      console.log(
-        `🧹 Pruned ${count} oldest entries (limit ${MAX_SEARCH_ENTRIES})`
-      );
+      console.log(`🧹 Pruned ${count} oldest entries (limit ${MAX_SEARCH_ENTRIES})`);
     }
   }, 60 * 1000); // Check every minute
 }
