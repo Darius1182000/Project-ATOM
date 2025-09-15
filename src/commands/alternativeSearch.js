@@ -1,128 +1,154 @@
-const { sendMessage, formatDuration } = require('../utils/helpers');
+const {sendMessage, formatDuration} = require('../utils/helpers');
+
+const MESSAGES = {
+    usage: 'Usage: `.alt <song name>` - Find alternative versions of a song',
+    lavalinkNotReady: '❌ Lavalink is not ready yet, please wait a moment.',
+    joinVoiceFirst: 'Join a voice channel first!',
+    createPlayerFailed: '❌ Failed to create music player.',
+    connectFailed: '❌ Failed to connect to voice channel.',
+    noAlternatives: (q) => `❌ No alternatives found for: ${q}`,
+    noneAvailable: '❌ No alternatives available. Use `.alt <song>` first to find alternatives.',
+    invalidNumber: (max) => `❌ Invalid number. Choose between 1 and ${max}.`,
+    searching: (q) => `🔍 **Searching for alternatives to:** ${q}`,
+    addedAlternative: (title, author) => `✅ Added alternative: **${title}** by ${author}`,
+    selectionHint:
+        '\n💡 Use `.playalt <number>` to select an alternative (e.g., `.playalt 2` for the second option)',
+};
+
+function buildAlternativeQueries(query) {
+    const base = `ytsearch:${query}`;
+    return [`${base} official`, `${base} audio`, `${base} music`, `${base} topic`, `${base} lyrics`];
+}
+
+async function ensurePlayerReady({manager, guildId, voiceChannelId, textChannelId}) {
+    let player = manager.players.get(guildId);
+    if (!player) {
+        player = manager.createPlayer({
+            guildId,
+            voiceChannelId,
+            textChannelId,
+            selfDeafen: true,
+            volume: 75,
+        });
+    }
+    if (player.state !== 'CONNECTED') {
+        await player.connect();
+    }
+    return player;
+}
+
+function pickUniqueFirstTracks(searchResults) {
+    const unique = [];
+    const seen = new Set();
+    for (const result of searchResults) {
+        const track = result?.tracks?.[0];
+        const id = track?.info?.identifier;
+        if (track && id && !seen.has(id)) {
+            seen.add(id);
+            unique.push(track);
+        }
+    }
+    return unique;
+}
+
+function formatAlternativesList(results) {
+    const header = `**🎵 Found ${results.length} alternative versions:**\n\n`;
+    const lines = results.map((track, i) => {
+        const title = track.info?.title ?? 'Unknown Title';
+        const author = track.info?.author ?? 'Unknown Artist';
+        const duration = formatDuration(track.info?.duration ?? 0);
+        return `${i + 1}. **${title}** by ${author} \`${duration}\``;
+    });
+    return header + lines.join('\n') + MESSAGES.selectionHint;
+}
 
 async function handleAlternativeSearch(message, args) {
-  const query = args.join(' ');
-  if (!query) return sendMessage(message.channel, 'Usage: `.alt <song name>` - Find alternative versions of a song');
+    const channel = message.channel;
+    const query = args.join(' ').trim();
+    if (!query) return sendMessage(channel, MESSAGES.usage);
 
-  const manager = message.client.manager;
-  if (!manager || !manager.useable) {
-    return sendMessage(message.channel, '❌ Lavalink is not ready yet, please wait a moment.');
-  }
-
-  const voiceChannel = message.member.voice.channel;
-  if (!voiceChannel) return sendMessage(message.channel, 'Join a voice channel first!');
-
-  let player = manager.players.get(message.guild.id);
-  if (!player) {
-    try {
-      player = manager.createPlayer({
-        guildId: message.guild.id,
-        voiceChannelId: voiceChannel.id,
-        textChannelId: message.channel.id,
-        selfDeafen: true,
-        volume: 75
-      });
-    } catch (err) {
-      console.error('Error creating player:', err);
-      return sendMessage(message.channel, '❌ Failed to create music player.');
+    const manager = message.client.manager;
+    if (!manager || !manager.useable) {
+        return sendMessage(channel, MESSAGES.lavalinkNotReady);
     }
-  }
 
-  if (player.state !== 'CONNECTED') {
+    const voiceChannel = message.member.voice.channel;
+    if (!voiceChannel) return sendMessage(channel, MESSAGES.joinVoiceFirst);
+
+    let player;
     try {
-      await player.connect();
+        player = await ensurePlayerReady({
+            manager,
+            guildId: message.guild.id,
+            voiceChannelId: voiceChannel.id,
+            textChannelId: channel.id,
+        });
     } catch (err) {
-      console.error('Error connecting player:', err);
-      return sendMessage(message.channel, '❌ Failed to connect to voice channel.');
+        console.error('Error preparing player:', err);
+        const msg = err?.message?.includes('connect') ? MESSAGES.connectFailed : MESSAGES.createPlayerFailed;
+        return sendMessage(channel, msg);
     }
-  }
 
-  sendMessage(message.channel, `🔍 **Searching for alternatives to:** ${query}`);
+    sendMessage(channel, MESSAGES.searching(query));
 
-  try {
-    // Search for multiple versions
-    const alternatives = [
-      `ytsearch:${query} official`,
-      `ytsearch:${query} audio`,
-      `ytsearch:${query} music`,
-      `ytsearch:${query} topic`,
-      `ytsearch:${query} lyrics`
-    ];
-
-    let results = [];
-    for (const altQuery of alternatives) {
-      try {
-        const result = await player.search(altQuery, message.author);
-        if (result && result.tracks && result.tracks.length > 0) {
-          const track = result.tracks[0];
-          if (!results.find((r) => r.info?.identifier === track.info?.identifier)) {
-            results.push(track);
-          }
+    try {
+        const searchQueries = buildAlternativeQueries(query);
+        const results = await Promise.all(
+            searchQueries.map((q) =>
+                player.search(q, message.author).catch((error) => {
+                    console.log(`Alternative search failed: ${q}`, error?.message ?? error);
+                    return null;
+                })
+            )
+        );
+        const uniqueTracks = pickUniqueFirstTracks(results);
+        if (uniqueTracks.length === 0) {
+            return sendMessage(channel, MESSAGES.noAlternatives(query));
         }
-      } catch (error) {
-        console.log(`Alternative search failed: ${altQuery}`, error.message);
-      }
+
+        // Store alternatives for quick selection (per text-channel)
+        if (!player.alternatives) player.alternatives = {};
+        player.alternatives[channel.id] = uniqueTracks;
+
+        const listMessage = formatAlternativesList(uniqueTracks);
+        sendMessage(channel, listMessage);
+    } catch (error) {
+        console.error('Error in alternative search:', error);
+        sendMessage(channel, '❌ An error occurred while searching for alternatives.');
     }
-
-    if (results.length === 0) {
-      return sendMessage(message.channel, `❌ No alternatives found for: ${query}`);
-    }
-
-    // Show the alternatives
-    let alternativesList = `**🎵 Found ${results.length} alternative versions:**\n\n`;
-    results.forEach((track, index) => {
-      const title = track.info?.title || 'Unknown Title';
-      const author = track.info?.author || 'Unknown Artist';
-      const duration = formatDuration(track.info?.duration || 0);
-      alternativesList += `${index + 1}. **${title}** by ${author} \`${duration}\`\n`;
-    });
-
-    alternativesList += `\n💡 Use \`.playalt <number>\` to select an alternative (e.g., \`.playalt 2\` for the second option)`;
-
-    // Store alternatives for quick selection
-    if (!player.alternatives) player.alternatives = {};
-    player.alternatives[message.channel.id] = results;
-
-    sendMessage(message.channel, alternativesList);
-  } catch (error) {
-    console.error('Error in alternative search:', error);
-    sendMessage(message.channel, '❌ An error occurred while searching for alternatives.');
-  }
 }
 
 async function handlePlayAlternative(message, args) {
-  const manager = message.client.manager;
-  const player = manager.players.get(message.guild.id);
+    const channel = message.channel;
+    const manager = message.client.manager;
+    const player = manager.players.get(message.guild.id);
+    if (!player || !player.alternatives || !player.alternatives[channel.id]) {
+        return sendMessage(channel, MESSAGES.noneAvailable);
+    }
 
-  if (!player || !player.alternatives || !player.alternatives[message.channel.id]) {
-    return sendMessage(message.channel, '❌ No alternatives available. Use `.alt <song>` first to find alternatives.');
-  }
+    const alternatives = player.alternatives[channel.id];
+    const altIndex = Number.parseInt((args?.[0] ?? '').trim(), 10) - 1;
+    if (!Number.isInteger(altIndex) || altIndex < 0 || altIndex >= alternatives.length) {
+        return sendMessage(channel, MESSAGES.invalidNumber(alternatives.length));
+    }
 
-  const altIndex = parseInt(args[0]) - 1;
-  const alternatives = player.alternatives[message.channel.id];
+    const selectedTrack = alternatives[altIndex];
+    selectedTrack.requester = message.author;
+    await player.queue.add(selectedTrack);
 
-  if (isNaN(altIndex) || altIndex < 0 || altIndex >= alternatives.length) {
-    return sendMessage(message.channel, `❌ Invalid number. Choose between 1 and ${alternatives.length}.`);
-  }
+    const title = selectedTrack.info?.title ?? 'Unknown Title';
+    const author = selectedTrack.info?.author ?? 'Unknown Artist';
+    sendMessage(channel, MESSAGES.addedAlternative(title, author));
 
-  const selectedTrack = alternatives[altIndex];
-  selectedTrack.requester = message.author;
+    if (!player.playing && !player.paused && player.queue.tracks.length > 0) {
+        await player.play();
+    }
 
-  await player.queue.add(selectedTrack);
-
-  const title = selectedTrack.info?.title || 'Unknown Title';
-  const author = selectedTrack.info?.author || 'Unknown Artist';
-  sendMessage(message.channel, `✅ Added alternative: **${title}** by ${author}`);
-
-  if (!player.playing && !player.paused && player.queue.tracks.length > 0) {
-    await player.play();
-  }
-
-  // Clear alternatives after use
-  delete player.alternatives[message.channel.id];
+    // Clear alternatives after use
+    delete player.alternatives[channel.id];
 }
 
 module.exports = {
-  handleAlternativeSearch,
-  handlePlayAlternative
+    handleAlternativeSearch,
+    handlePlayAlternative,
 };
