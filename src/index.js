@@ -1,9 +1,9 @@
 require('dotenv').config();
 const {Client, GatewayIntentBits} = require('discord.js');
-const {initializeLavalink} = require('./src/lavalink/lavalinkManager.js');
-const {setupEventHandlers} = require('./src/events/eventHandler');
-const {handleMessage} = require('./src/commands/messageHandler');
-const {validateEnvironment} = require('./src/utils/environment');
+const {initializeLavalink} = require('./lavalink/lavalinkManager.js');
+const {setupEventHandlers} = require('./events/eventHandler');
+const {handleMessage} = require('./commands/messageHandler');
+const {validateEnvironment} = require('./utils/environment');
 
 // --- Environment Variable Validation ---
 const envVars = validateEnvironment();
