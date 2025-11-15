@@ -4,6 +4,50 @@ const {playMusic} = require('./musicCommands');
 const COMMAND_PREFIX = '.';
 const MAX_LIST_COUNT = 10;
 const REPEAT_MODES = {OFF: 'off', TRACK: 'track', QUEUE: 'queue'};
+const STATE_CMD_COOLDOWN_MS = 750; // short cooldown to prevent spam
+
+// Simple per-guild promise chain to serialize state-changing commands
+const guildLocks = new Map(); // Map<guildId, Promise<void>>
+function withGuildLock(guildId, task) {
+    const prev = guildLocks.get(guildId) || Promise.resolve();
+    const next = prev
+        .catch(() => {
+        }) // swallow previous error to not break the chain
+        .then(() => task())
+        .finally(() => {
+            // If the “next” is still the latest, clear it
+            if (guildLocks.get(guildId) === next) guildLocks.delete(guildId);
+        });
+    guildLocks.set(guildId, next);
+    return next;
+}
+
+// Per-guild per-command cooldowns
+const guildCooldowns = new Map(); // Map<guildId, Map<command, number>>
+function isOnCooldown(guildId, command) {
+    const cmdMap = guildCooldowns.get(guildId);
+    if (!cmdMap) return false;
+    const until = cmdMap.get(command) || 0;
+    return Date.now() < until;
+}
+
+function setCooldown(guildId, command, ms = STATE_CMD_COOLDOWN_MS) {
+    let cmdMap = guildCooldowns.get(guildId);
+    if (!cmdMap) {
+        cmdMap = new Map();
+        guildCooldowns.set(guildId, cmdMap);
+    }
+    cmdMap.set(command, Date.now() + ms);
+}
+
+function ensurePlayerReady(player) {
+    // Basic readiness checks to avoid issuing commands during disconnects/desyncs
+    if (!player) return {ok: false, reason: 'No player found for this guild.'};
+    if (!player.connected) return {ok: false, reason: 'Bot is not connected to voice.'};
+    if (!player.voiceChannelId) return {ok: false, reason: 'No voice channel is set for the player.'};
+    //if (message.member.voice.channelId !== player.voiceChannelId)
+    return {ok: true};
+}
 
 function parseCommandArgs(content) {
     const withoutPrefix = content.slice(COMMAND_PREFIX.length).trim();
@@ -123,59 +167,142 @@ async function handleMessage(message) {
     });
 
     registry.set('stop', async () => {
-        const player = getPlayer(manager, message.guild.id);
-        if (player) {
-            player.destroy();
-            sendMessage(message.channel, 'Stopped the music and left the channel.');
-        } else {
-            sendMessage(message.channel, 'Nothing is playing right now.');
-        }
+        const guildId = message.guild.id;
+        const player = getPlayer(manager, guildId);
+
+        await withGuildLock(guildId, async () => {
+            if (!player) {
+                return sendMessage(message.channel, 'Nothing is playing right now.');
+            }
+            if (isOnCooldown(guildId, 'stop')) {
+                return sendMessage(message.channel, 'Please wait a moment before stopping again.');
+            }
+            setCooldown(guildId, 'stop');
+
+            try {
+                player.destroy();
+                sendMessage(message.channel, 'Stopped the music and left the channel.');
+            } catch (err) {
+                console.error('[Music][stop] failed', {
+                    guildId,
+                    connected: player?.connected,
+                    paused: player?.paused,
+                    playing: player?.playing,
+                    voiceChannelId: player?.voiceChannelId
+                }, err);
+                sendMessage(message.channel, `Could not stop: ${err?.message || err}`);
+            }
+        });
     });
 
     registry.set('skip', async () => {
-        const player = getPlayer(manager, message.guild.id);
-        if (player && player.queue.current) {
+        const guildId = message.guild.id;
+        const player = getPlayer(manager, guildId);
+
+        await withGuildLock(guildId, async () => {
+            const ready = ensurePlayerReady(player);
+            if (!ready.ok) return sendMessage(message.channel, ready.reason);
+
+            if (!player?.queue?.current) {
+                return sendMessage(message.channel, 'Nothing is playing right now.');
+            }
             if (player.queue.tracks.length === 0) {
-                sendMessage(
+                return sendMessage(
                     message.channel,
                     "Can't skip - this is the only song in the queue! Use `.stop` to stop playback."
                 );
-                return;
             }
+            if (isOnCooldown(guildId, 'skip')) {
+                return sendMessage(message.channel, 'Please wait a moment before skipping again.');
+            }
+            setCooldown(guildId, 'skip');
+
             const title = safeGetTitle(player.queue.current);
-            player.skip();
-            sendMessage(message.channel, `Skipped: **${title}**`);
-        } else {
-            sendMessage(message.channel, 'Nothing is playing right now.');
-        }
+            try {
+                player.skip();
+                sendMessage(message.channel, `Skipped: **${title}**`);
+            } catch (err) {
+                console.error('[Music][skip] failed', {
+                    guildId,
+                    connected: player?.connected,
+                    paused: player?.paused,
+                    playing: player?.playing,
+                    voiceChannelId: player?.voiceChannelId
+                }, err);
+                sendMessage(message.channel, `Could not skip: ${err?.message || err}`);
+            }
+        });
     });
 
     registry.set('pause', async () => {
-        const player = getPlayer(manager, message.guild.id);
-        if (player && player.queue.current) {
-            if (player.paused) {
-                sendMessage(message.channel, 'The music is already paused!');
-            } else {
-                player.pause(true);
-                sendMessage(message.channel, 'Paused the music!');
+        const guildId = message.guild.id;
+        const player = getPlayer(manager, guildId);
+
+        // Serialize and protect this section
+        await withGuildLock(guildId, async () => {
+            const ready = ensurePlayerReady(player);
+            if (!ready.ok) return sendMessage(message.channel, ready.reason);
+
+            if (!player?.queue?.current) {
+                return sendMessage(message.channel, 'Nothing is playing right now.');
             }
-        } else {
-            sendMessage(message.channel, 'Nothing is playing right now.');
-        }
+            if (player.paused) {
+                return sendMessage(message.channel, 'The music is already paused!');
+            }
+            if (isOnCooldown(guildId, 'pause')) {
+                return sendMessage(message.channel, 'Please wait a moment before pausing again.');
+            }
+            setCooldown(guildId, 'pause');
+
+            try {
+                await player.pause();
+                sendMessage(message.channel, 'Paused the music!');
+            } catch (err) {
+                console.error('[Music][pause] failed', {
+                    guildId,
+                    connected: player?.connected,
+                    paused: player?.paused,
+                    playing: player?.playing,
+                    voiceChannelId: player?.voiceChannelId
+                }, err);
+                sendMessage(message.channel, `Could not pause: ${err?.message || err}`);
+            }
+        });
     });
 
     registry.set('resume', async () => {
-        const player = getPlayer(manager, message.guild.id);
-        if (player && player.queue.current) {
-            if (player.paused) {
-                player.pause(false);
-                sendMessage(message.channel, 'Resumed the music!');
-            } else {
-                sendMessage(message.channel, 'The music is already playing!');
+        const guildId = message.guild.id;
+        const player = getPlayer(manager, guildId);
+
+        await withGuildLock(guildId, async () => {
+            const ready = ensurePlayerReady(player);
+            if (!ready.ok) return sendMessage(message.channel, ready.reason);
+
+            if (!player?.queue?.current) {
+                return sendMessage(message.channel, 'Nothing is playing right now.');
             }
-        } else {
-            sendMessage(message.channel, 'Nothing is playing right now.');
-        }
+            if (!player.paused) {
+                return sendMessage(message.channel, 'The music is already playing!');
+            }
+            if (isOnCooldown(guildId, 'resume')) {
+                return sendMessage(message.channel, 'Please wait a moment before resuming again.');
+            }
+            setCooldown(guildId, 'resume');
+
+            try {
+                await player.resume();
+                sendMessage(message.channel, 'Resumed the music!');
+            } catch (err) {
+                console.error('[Music][resume] failed', {
+                    guildId,
+                    connected: player?.connected,
+                    paused: player?.paused,
+                    playing: player?.playing,
+                    voiceChannelId: player?.voiceChannelId
+                }, err);
+                sendMessage(message.channel, `Could not resume: ${err?.message || err}`);
+            }
+        });
     });
 
     registry.set('queue', async () => {
