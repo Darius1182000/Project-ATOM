@@ -1,8 +1,5 @@
 FROM node:20.17.0-alpine
 
-# Install ffmpeg
-RUN apk add --no-cache ffmpeg
-
 WORKDIR /app
 
 # Copy package files

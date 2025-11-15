@@ -4,18 +4,17 @@ const {playMusic} = require('./musicCommands');
 const COMMAND_PREFIX = '.';
 const MAX_LIST_COUNT = 10;
 const REPEAT_MODES = {OFF: 'off', TRACK: 'track', QUEUE: 'queue'};
-const STATE_CMD_COOLDOWN_MS = 750; // short cooldown to prevent spam
+const STATE_CMD_COOLDOWN_MS = 750;
 
-// Simple per-guild promise chain to serialize state-changing commands
-const guildLocks = new Map(); // Map<guildId, Promise<void>>
+const guildLocks = new Map();
+
 function withGuildLock(guildId, task) {
     const prev = guildLocks.get(guildId) || Promise.resolve();
     const next = prev
         .catch(() => {
-        }) // swallow previous error to not break the chain
+        })
         .then(() => task())
         .finally(() => {
-            // If the “next” is still the latest, clear it
             if (guildLocks.get(guildId) === next) guildLocks.delete(guildId);
         });
     guildLocks.set(guildId, next);
@@ -23,7 +22,8 @@ function withGuildLock(guildId, task) {
 }
 
 // Per-guild per-command cooldowns
-const guildCooldowns = new Map(); // Map<guildId, Map<command, number>>
+const guildCooldowns = new Map();
+
 function isOnCooldown(guildId, command) {
     const cmdMap = guildCooldowns.get(guildId);
     if (!cmdMap) return false;
