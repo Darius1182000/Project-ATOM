@@ -18,4 +18,4 @@ COPY . .
 EXPOSE 3000
 
 # Run the bot
-CMD ["node", "index.js"]
+CMD ["node", "src/index.js"]
